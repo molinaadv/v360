@@ -49,9 +49,9 @@ FONTE = '-apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif'
 # CSS GLOBAL
 # ---------------------------------------------------------------------
 def injetar_css():
-    if st.session_state.get("_v360_css"):
-        return
-    st.session_state["_v360_css"] = True
+    # SEMPRE injeta: o Streamlit reconstrói o DOM a cada rerun, então um guard
+    # em session_state faria o estilo sumir depois do login (bug que deixava o
+    # app claro e trazia de volta o menu automático de páginas).
     st.markdown(
         f"""
         <style>
