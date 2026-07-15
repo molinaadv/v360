@@ -31,14 +31,14 @@ TVS = [
 
 
 def _card_link(href, nome, desc, ic, extra_html=""):
-    """Card inteiro clicável (é o próprio botão 'Abrir na TV'). Abre em nova aba."""
-    return f"""<a href="{href}" target="_blank" class="tvcard-link">
-      <div class="tvcard">
-        <div style="font-weight:800;color:{t.CORES['ink']};font-size:15px;">{ic} {nome}</div>
-        <div style="color:{t.CORES['muted']};font-size:12.5px;margin-top:6px;">{desc}</div>
-        {extra_html}
-        <div class="tvbtn">▶&nbsp; Abrir na TV</div>
-      </div></a>"""
+    """Card inteiro clicável (é o próprio botão 'Abrir na TV'). Abre em nova aba.
+    HTML numa linha só de propósito: indentação faz o Streamlit tratar como
+    bloco de código e vazar '</div></a>' na tela."""
+    titulo = f'<div style="font-weight:800;color:{t.CORES["ink"]};font-size:15px;">{ic} {nome}</div>'
+    sub = f'<div style="color:{t.CORES["muted"]};font-size:12.5px;margin-top:6px;">{desc}</div>'
+    btn = '<div class="tvbtn">▶&nbsp; Abrir na TV</div>'
+    return (f'<a href="{href}" target="_blank" class="tvcard-link">'
+            f'<div class="tvcard">{titulo}{sub}{extra_html}{btn}</div></a>')
 
 
 def render(df_tasks, df_colabs=None, df_metas=None):

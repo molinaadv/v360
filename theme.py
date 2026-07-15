@@ -75,14 +75,16 @@ def injetar_css():
         /* barra branca do topo (header do Streamlit) → transparente */
         header[data-testid="stHeader"] {{ background: rgba(0,0,0,0) !important; }}
 
-        /* botões e links da área principal (Atualizar, export, Abrir na TV) → dark */
-        .stButton > button, .stDownloadButton > button, .stLinkButton > a {{
+        /* botões e links da área principal (Atualizar, Entrar, export, Abrir na TV) → dark */
+        .stButton > button, .stDownloadButton > button, .stLinkButton > a,
+        .stFormSubmitButton > button, [data-testid="stFormSubmitButton"] button {{
             background: var(--panel2) !important; color: var(--ink) !important;
             border: 1px solid var(--line) !important; border-radius: 12px !important;
             font-weight: 700 !important;
         }}
-        .stButton > button:hover, .stDownloadButton > button:hover, .stLinkButton > a:hover {{
-            border-color: var(--accent) !important; background: rgba(91,140,255,.16) !important; color: var(--ink) !important;
+        .stButton > button:hover, .stDownloadButton > button:hover, .stLinkButton > a:hover,
+        .stFormSubmitButton > button:hover, [data-testid="stFormSubmitButton"] button:hover {{
+            border-color: var(--accent) !important; background: rgba(91,140,255,.16) !important; color: #fff !important;
         }}
         /* st.page_link (o "▶ Abrir na TV" dos cards) → botão dark, não caixa branca */
         a[data-testid="stPageLink-NavLink"] {{
