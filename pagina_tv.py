@@ -1,9 +1,10 @@
 # =====================================================================
 # V360 MOLINA — TV OPERACIONAL  (console: abre todas as TVs num lugar só)
 # =====================================================================
-# Junta num único menu:
-#  1) os painéis de TV que já existem em /pages (cada um abre em tela cheia);
-#  2) o Painel Operacional ADM por unidade (via painel_tv_operacional.py).
+# Cada painel é um CARD CLICÁVEL (o card inteiro é o botão "Abrir na TV").
+# Sem widget separado, sem caixa branca. Abre em nova aba.
+#  1) painéis-página de /pages (URL = nome do arquivo);
+#  2) Painel Operacional ADM por unidade (?setor=adm&unidade=…).
 # =====================================================================
 import streamlit as st
 
@@ -14,37 +15,35 @@ try:
 except Exception:
     tvop = None
 
-# Painéis-página (arquivos em /pages). label = como aparece no card.
+# arq = caminho em /pages · slug = URL da página (nome do arquivo sem .py)
 TVS = [
-    {"arq": "pages/painel_tv_michelle.py",    "nome": "Gerência (Michelle)",   "desc": "Confecção → Protocolo · Benefícios · Alvará", "ic": "📄"},
-    {"arq": "pages/painel_tv_rodrigo.py",     "nome": "Rodrigo",               "desc": "Painel do núcleo do Rodrigo",                 "ic": "📄"},
-    {"arq": "pages/painel_tv_analise.py",     "nome": "Análise",               "desc": "Núcleo de Análise",                           "ic": "🔎"},
-    {"arq": "pages/painel_tv_aparecida.py",   "nome": "Aparecida",             "desc": "Unidade Aparecida",                           "ic": "🏢"},
-    {"arq": "pages/painel_tv_compensa.py",    "nome": "Compensa",              "desc": "Unidade Compensa",                            "ic": "🏢"},
-    {"arq": "pages/painel_tv_iranduba.py",    "nome": "Iranduba",              "desc": "Unidade Iranduba",                            "ic": "🏢"},
-    {"arq": "pages/painel_tv_itacoatiara.py", "nome": "Itacoatiara",           "desc": "Unidade Itacoatiara",                         "ic": "🏢"},
-    {"arq": "pages/painel_tv_manacapuru.py",  "nome": "Manacapuru",            "desc": "Unidade Manacapuru",                          "ic": "🏢"},
-    {"arq": "pages/painel_tv_portovelho1.py", "nome": "Porto Velho 1",         "desc": "Unidade Porto Velho - Unid 1",                "ic": "🏢"},
-    {"arq": "pages/painel_tv.py",             "nome": "Painel TV (geral)",     "desc": "Painel rotativo geral / modelo",              "ic": "📺"},
+    {"arq": "painel_tv_michelle",    "nome": "Gerência (Michelle)", "desc": "Confecção → Protocolo · Benefícios · Alvará", "ic": "📄"},
+    {"arq": "painel_tv_rodrigo",     "nome": "Rodrigo",             "desc": "Painel do núcleo do Rodrigo",                 "ic": "📄"},
+    {"arq": "painel_tv_analise",     "nome": "Análise",             "desc": "Núcleo de Análise",                           "ic": "🔎"},
+    {"arq": "painel_tv_aparecida",   "nome": "Aparecida",           "desc": "Unidade Aparecida",                           "ic": "🏢"},
+    {"arq": "painel_tv_compensa",    "nome": "Compensa",            "desc": "Unidade Compensa",                            "ic": "🏢"},
+    {"arq": "painel_tv_iranduba",    "nome": "Iranduba",            "desc": "Unidade Iranduba",                            "ic": "🏢"},
+    {"arq": "painel_tv_itacoatiara", "nome": "Itacoatiara",         "desc": "Unidade Itacoatiara",                         "ic": "🏢"},
+    {"arq": "painel_tv_manacapuru",  "nome": "Manacapuru",          "desc": "Unidade Manacapuru",                          "ic": "🏢"},
+    {"arq": "painel_tv_portovelho1", "nome": "Porto Velho 1",       "desc": "Unidade Porto Velho - Unid 1",                "ic": "🏢"},
+    {"arq": "painel_tv",             "nome": "Painel TV (geral)",   "desc": "Painel rotativo geral / modelo",              "ic": "📺"},
 ]
 
 
-def _card(nome, desc, ic, extra_html=""):
-    st.markdown(
-        f"""<div style="background:linear-gradient(160deg,{t.CORES['panel']},{t.CORES['panel2']});
-             border:1px solid {t.CORES['line']};border-radius:16px;padding:16px 16px 12px;
-             min-height:120px;box-shadow:0 10px 30px rgba(0,0,0,.25);margin-bottom:6px;">
-            <div style="font-weight:800;color:{t.CORES['ink']};font-size:15px;">{ic} {nome}</div>
-            <div style="color:{t.CORES['muted']};font-size:12.5px;margin-top:6px;">{desc}</div>
-            {extra_html}
-        </div>""",
-        unsafe_allow_html=True,
-    )
+def _card_link(href, nome, desc, ic, extra_html=""):
+    """Card inteiro clicável (é o próprio botão 'Abrir na TV'). Abre em nova aba."""
+    return f"""<a href="{href}" target="_blank" class="tvcard-link">
+      <div class="tvcard">
+        <div style="font-weight:800;color:{t.CORES['ink']};font-size:15px;">{ic} {nome}</div>
+        <div style="color:{t.CORES['muted']};font-size:12.5px;margin-top:6px;">{desc}</div>
+        {extra_html}
+        <div class="tvbtn">▶&nbsp; Abrir na TV</div>
+      </div></a>"""
 
 
 def render(df_tasks, df_colabs=None, df_metas=None):
     t.titulo("📺 TV OPERACIONAL",
-             "Abra qualquer painel na TV a partir daqui. Na TV, aperte F para tela cheia — "
+             "Clique no painel para abrir na TV (nova aba). Na TV, aperte F para tela cheia — "
              "sincroniza sozinho a cada 5 min.",
              pills=[t.pill("painéis por núcleo / unidade", t.NEUTRO), t.pill("ao vivo", live=True)])
 
@@ -52,14 +51,9 @@ def render(df_tasks, df_colabs=None, df_metas=None):
     t.secao("Painéis por núcleo e unidade")
     cols = st.columns(3)
     for i, tv in enumerate(TVS):
-        with cols[i % 3]:
-            _card(tv["nome"], tv["desc"], tv["ic"])
-            try:
-                st.page_link(tv["arq"], label="▶  Abrir na TV", use_container_width=True)
-            except Exception:
-                # fallback se page_link não resolver o caminho
-                url = "/" + tv["arq"].split("/")[-1].replace(".py", "")
-                st.link_button("▶  Abrir na TV", url, use_container_width=True)
+        # URL relativa à raiz do app (a página vive em /pages, servida em /<slug>)
+        cols[i % 3].markdown(_card_link(tv["arq"], tv["nome"], tv["desc"], tv["ic"]),
+                             unsafe_allow_html=True)
 
     # ---- 2) Painel Operacional ADM por unidade ----
     if tvop is None:
@@ -85,11 +79,9 @@ def render(df_tasks, df_colabs=None, df_metas=None):
             tot_cump = sum(a["cumpridoMes"] for a in areas)
         except Exception:
             tot_pend = tot_cump = 0
-        link = f"?setor={chave}&unidade={unidade}"
-        with cols[i % 3]:
-            extra = (f'<div style="margin-top:10px;color:{t.CORES["muted"]};font-size:12.5px;">'
-                     f'Pendências: <b style="color:{t.ABERTO};">{tot_pend}</b> · '
-                     f'Cumpridos/mês: <b style="color:{t.CUMPRIDO};">{tot_cump}</b></div>')
-            _card(cfg["titulo"], f"Unidade: {unidade}", "🖥️", extra)
-            st.link_button("▶  Abrir na TV", link, use_container_width=True)
-            st.code(link, language=None)
+        extra = (f'<div style="margin-top:10px;color:{t.CORES["muted"]};font-size:12.5px;">'
+                 f'Pendências: <b style="color:{t.ABERTO};">{tot_pend}</b> · '
+                 f'Cumpridos/mês: <b style="color:{t.CUMPRIDO};">{tot_cump}</b></div>')
+        href = f"?setor={chave}&unidade={unidade}"
+        cols[i % 3].markdown(_card_link(href, cfg["titulo"], f"Unidade: {unidade}", "🖥️", extra),
+                             unsafe_allow_html=True)

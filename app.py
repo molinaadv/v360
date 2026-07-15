@@ -22,7 +22,8 @@ import pagina_executivo
 import pagina_insights
 import pagina_metas
 import pagina_mapa
-import pagina_colaboradores
+import pagina_performance
+import pagina_comparativo
 import pagina_tv
 
 try:
@@ -80,7 +81,8 @@ PAGINAS = [
     ("💡  Insights V360", "Insights"),
     ("🎯  Metas",         "Metas"),
     ("🗺️  Mapa",          "Mapa"),
-    ("👥  Colaboradores", "Colaboradores"),
+    ("👥  Performance",   "Performance"),
+    ("🔀  Comparativo",   "Comparativo"),
     ("📺  TV Operacional", "TV"),
 ]
 
@@ -172,8 +174,10 @@ try:
         pagina_metas.render(df_f, df_metas_f, ano_filtro, mes_filtro)
     elif pagina == "Mapa":
         pagina_mapa.render(df_f, df_metas_f, ano_filtro, mes_filtro)
-    elif pagina == "Colaboradores":
-        pagina_colaboradores.render(df_colabs)
+    elif pagina == "Performance":
+        pagina_performance.render(df_f, df_metas_f, ano_filtro, mes_filtro)
+    elif pagina == "Comparativo":
+        pagina_comparativo.render(df_f, df_metas_f, ano_filtro, mes_filtro)
     elif pagina == "TV":
         pagina_tv.render(df_tasks, df_colabs, df_metas)
 except Exception as e:

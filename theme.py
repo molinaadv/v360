@@ -72,6 +72,29 @@ def injetar_css():
            no nosso menu "TV Operacional", não espalhadas na barra) */
         [data-testid="stSidebarNav"] {{ display: none !important; }}
 
+        /* barra branca do topo (header do Streamlit) → transparente */
+        header[data-testid="stHeader"] {{ background: rgba(0,0,0,0) !important; }}
+
+        /* botões e links da área principal (Atualizar, export, Abrir na TV) → dark */
+        .stButton > button, .stDownloadButton > button, .stLinkButton > a {{
+            background: var(--panel2) !important; color: var(--ink) !important;
+            border: 1px solid var(--line) !important; border-radius: 12px !important;
+            font-weight: 700 !important;
+        }}
+        .stButton > button:hover, .stDownloadButton > button:hover, .stLinkButton > a:hover {{
+            border-color: var(--accent) !important; background: rgba(91,140,255,.16) !important; color: var(--ink) !important;
+        }}
+        /* st.page_link (o "▶ Abrir na TV" dos cards) → botão dark, não caixa branca */
+        a[data-testid="stPageLink-NavLink"] {{
+            background: var(--panel2) !important; border: 1px solid var(--line) !important;
+            border-radius: 12px !important; padding: 10px 14px !important; justify-content: center !important;
+        }}
+        a[data-testid="stPageLink-NavLink"]:hover {{
+            background: rgba(91,140,255,.16) !important; border-color: var(--accent) !important;
+        }}
+        a[data-testid="stPageLink-NavLink"] p,
+        a[data-testid="stPageLink-NavLink"] span {{ color: var(--ink) !important; font-weight: 700 !important; }}
+
         /* -------- SIDEBAR -------- */
         section[data-testid="stSidebar"] {{
             background: linear-gradient(180deg, #0a1428 0%, #0b1220 100%) !important;
@@ -117,6 +140,19 @@ def injetar_css():
         .kpi .lbl {{ color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing:.4px; }}
         .kpi .val {{ font-size: clamp(34px,4.4vw,48px); font-weight: 900; line-height: 1; margin-top: 10px; color: var(--ink); }}
         .kpi .sub {{ color: var(--dim); font-size: 12.5px; font-weight: 600; margin-top: 8px; }}
+
+        /* -------- CARD CLICÁVEL DA TV (o card inteiro é o botão) -------- */
+        a.tvcard-link {{ text-decoration: none !important; display: block; }}
+        .tvcard {{ background: linear-gradient(160deg, var(--panel), var(--panel2));
+            border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.25);
+            transition: transform .15s, border-color .15s, box-shadow .15s; }}
+        .tvcard:hover {{ transform: translateY(-2px); border-color: var(--accent);
+            box-shadow: 0 14px 36px rgba(91,140,255,.20); }}
+        .tvbtn {{ margin-top: 14px; text-align: center; background: var(--panel2);
+            border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+            color: var(--ink); font-weight: 800; font-size: 13.5px; }}
+        .tvcard:hover .tvbtn {{ background: rgba(91,140,255,.18); border-color: var(--accent); color: #fff; }}
 
         /* -------- NOTAS / ALERTAS -------- */
         .nota {{ border-radius: 14px; padding: 12px 16px; margin: 6px 0; font-size: 14px;

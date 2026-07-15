@@ -31,7 +31,7 @@ COLUNAS: dict[str, list[str]] = {
         "id", "subtipo_nome", "status_nome", "status_id", "cumprida",
         "creation_date", "end_datetime", "effective_end_datetime",
         "data_conclusao", "mes_conclusao", "deadline",
-        "usuario_executor", "usuario_criador",
+        "usuario_executor", "usuario_criador", "responsavel_nome",
         "unidade_nome", "unidade_principal",
         "entra_meta", "indicador_meta", "setor_meta",
         # NUNCA incluir: notes, description  (sensíveis)
