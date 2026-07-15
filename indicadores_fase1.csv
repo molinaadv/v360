@@ -1,0 +1,284 @@
+AREA,ETAPA,INDICADOR,TIPO,SUBTIPO,STATUS,OBSERVACAO,DESCRICAO
+todas,Abertura,Colaborador que abriu mais pastas ( destaque da meta ),Atendimento,Atendimento Novo,cumprindo,Cumpridos no mes,
+todas,Abertura,Organização de Pastas,Análise,Organização da Pasta,"Pendente, Não Cumprido e Iniciado",Informa que a pasta abertao nao foi scaneada e dado continuidade para a analise,
+Previdenciario,Análise,Pastas Abertas Previdenciarias e Meta,Análise,"Enviado p/ Análise
+Enviado p/ Análise ADM",Cumprido,Cumpridos do mes,
+Previdenciario,Análise,Pastas a serem analisadas,Análise,"Enviado p/ Análise
+Enviado p/ Análise ADM","Pendente, Não Cumprido",ainda faltam ser analisadas,
+Previdenciario,Análise,Voltaram da Denúncia,Análise,ADM p/ Análise,"Pendente, Não Cumprido",ainda faltam ser analisadas,
+Cível,Análise,Pastas Abertas Cível,Análise,Enviado p/ Análise Cível,Cumprido,Cumpridos do mes,
+Trabalhista,Análise,Pastas Abertas Trabalhista,Análise,,Cumprido,Cumpridos do mes,
+todas,Pendencia,Pendencia de pastas abertas,Análise,"Pendência na Análise
+Pendência na Análise - ADM
+Pendência na Análise- Cível","Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada,
+todas,Pendencia,Pendencia de pastas abertas - Iniciadas,Análise,"Pendência na Análise
+Pendência na Análise - ADM
+Pendência na Análise- Cível",Iniciado,Informa que a pendencia ja esta sendo tratada,
+Previdenciario,Agendamento,Agendamento Administrativo,Análise,Enviado p/ Agendamento,"Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada,
+Previdenciario,Agendamento,Agendamento Administrativo,Análise,Enviado p/ Agendamento,Iniciado,Informa que a pendencia ja esta sendo tratada,
+Previdenciario,Agendamento,Agendamento Administrativo,Análise,Solicitar Prorrogação,"Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada,
+Previdenciario,Agendamento,Agendamento Administrativo,Análise,Solicitar Prorrogação,Iniciado,Informa que a pendencia ja esta sendo tratada,
+Previdenciario,Agendamento,Agendamento Administrativo,Implantação,Acompanhamento de Prorrogação,Iniciado,Informa que a pendencia ja esta sendo tratada,
+Previdenciario,Agendamento,Agendamento Administrativo,Implantação,Acompanhamento de Prorrogação,"Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada,
+Previdenciario,Agendamento,Agendamento Administrativo,Perícia ADM,"Agendar Perícia ADM
+Avaliação Social ADM (ATRIUM)
+Avaliação Social ADM (CACHOEIRINHA)
+Avaliação Social ADM (CAREIRO)
+Avaliação Social ADM (CIDADE NOVA)
+Avaliação Social ADM (COMPENSA)
+Avaliação Social ADM (IRANDUBA)
+Avaliação Social ADM (ITACOATIARA)
+Avaliação Social ADM (ITAPIRANGA)
+Avaliação Social ADM (MANACAPURU) - ajustar
+Avaliação Social ADM (ONLINE)
+Avaliação Social ADM (PARINTINS)
+Avaliação Social ADM (PORTO VELHO - UNID 1)
+Avaliação Social ADM (PORTO VELHO - UNID 2)
+Avaliação Social ADM (PRESIDENTE FIGUEIREDO)
+Avaliação Social ADM (RIO PRETO DA EVA) - ajustar
+Avaliação Social ADM (RONDONÓPOLIS)
+Avaliação Social ADM (SÃO JOSÉ)
+Avaliação Social ADM (URUCURITUBA)
+Informar Cliente - Avaliação Social ADM
+Informar Cliente - Perícia ADM
+Perícia ADM
+Perícia ADM (ATRIUM)
+Perícia ADM (BARREIRINHA) - Ajustar
+Perícia ADM (CACHOEIRINHA)
+Perícia ADM (CAREIRO)
+Perícia ADM (CIDADE NOVA)
+Perícia ADM (COMPENSA)
+Perícia ADM (HUMAITÁ)
+Perícia ADM (IRANDUBA)
+Perícia ADM (ITACOATIARA)
+Perícia ADM (LÁBREA)
+Perícia ADM (MANACAPURU)
+Perícia ADM (MANAQUIRI)
+Perícia ADM (MAUÉS)
+Perícia ADM (NOVO AIRÃO)
+Perícia ADM (ONLINE)
+Perícia ADM (PARINTINS)
+Perícia ADM (PORTO VELHO - UNID 1)
+Perícia ADM (PORTO VELHO - UNID 2)
+Perícia ADM (PRESIDENTE FIGUEIREDO)
+Perícia ADM (RIO PRETO DA EVA)
+Perícia ADM (SÃO JOSÉ)","Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada,
+Previdenciario,Agendamento,Agendamento Administrativo,Perícia ADM,"Agendar Perícia ADM
+Avaliação Social ADM (ATRIUM)
+Avaliação Social ADM (CACHOEIRINHA)
+Avaliação Social ADM (CAREIRO)
+Avaliação Social ADM (CIDADE NOVA)
+Avaliação Social ADM (COMPENSA)
+Avaliação Social ADM (IRANDUBA)
+Avaliação Social ADM (ITACOATIARA)
+Avaliação Social ADM (ITAPIRANGA)
+Avaliação Social ADM (MANACAPURU) - ajustar
+Avaliação Social ADM (ONLINE)
+Avaliação Social ADM (PARINTINS)
+Avaliação Social ADM (PORTO VELHO - UNID 1)
+Avaliação Social ADM (PORTO VELHO - UNID 2)
+Avaliação Social ADM (PRESIDENTE FIGUEIREDO)
+Avaliação Social ADM (RIO PRETO DA EVA) - ajustar
+Avaliação Social ADM (RONDONÓPOLIS)
+Avaliação Social ADM (SÃO JOSÉ)
+Avaliação Social ADM (URUCURITUBA)
+Informar Cliente - Avaliação Social ADM
+Informar Cliente - Perícia ADM
+Perícia ADM
+Perícia ADM (ATRIUM)
+Perícia ADM (BARREIRINHA) - Ajustar
+Perícia ADM (CACHOEIRINHA)
+Perícia ADM (CAREIRO)
+Perícia ADM (CIDADE NOVA)
+Perícia ADM (COMPENSA)
+Perícia ADM (HUMAITÁ)
+Perícia ADM (IRANDUBA)
+Perícia ADM (ITACOATIARA)
+Perícia ADM (LÁBREA)
+Perícia ADM (MANACAPURU)
+Perícia ADM (MANAQUIRI)
+Perícia ADM (MAUÉS)
+Perícia ADM (NOVO AIRÃO)
+Perícia ADM (ONLINE)
+Perícia ADM (PARINTINS)
+Perícia ADM (PORTO VELHO - UNID 1)
+Perícia ADM (PORTO VELHO - UNID 2)
+Perícia ADM (PRESIDENTE FIGUEIREDO)
+Perícia ADM (RIO PRETO DA EVA)
+Perícia ADM (SÃO JOSÉ)",Iniciado,Informa que a pendencia ja esta sendo tratada,
+Previdenciario,Acompanhamento ADM,Acompanhamento ADM,Exigência,"Acompanhamento de Reabilitação
+Agendar Perícia ADM - Exigência
+Avaliação Social ADM Exigência (ATRIUM)
+Avaliação Social ADM Exigência (CACHOEIRINHA)
+Avaliação Social ADM Exigência (CAREIRO)
+Avaliação Social ADM Exigência (CIDADE NOVA)
+Avaliação Social ADM Exigência (COMPENSA)
+Avaliação Social ADM Exigência (HUMAITÁ)
+Avaliação Social ADM Exigência (ITACOATIARA)
+Avaliação Social ADM Exigência (MANACAPURU)
+Avaliação Social ADM Exigência (ONLINE)
+Avaliação Social ADM Exigência (PORTO VELHO - UNID 1)
+Avaliação Social ADM Exigência (PORTO VELHO - UNID 2)
+Avaliação Social ADM Exigência (PRESIDENTE FIGUEIREDO)
+Avaliação Social ADM Exigência (RIO PRETO DA EVA)
+Avaliação Social ADM Exigência (SÃO JOSÉ)
+Avaliação Social ADM Exigência (URUCURITUBA)
+Cumprimento de Exigência
+Perícia ADM
+Perícia ADM (ATRIUM)
+Perícia ADM (BARREIRINHA) - Ajustar
+Perícia ADM (CACHOEIRINHA)
+Perícia ADM (CAREIRO)
+Perícia ADM (CIDADE NOVA)
+Perícia ADM (COMPENSA)
+Perícia ADM (HUMAITÁ)
+Perícia ADM (IRANDUBA)
+Perícia ADM (ITACOATIARA)
+Perícia ADM (LÁBREA)
+Perícia ADM (MANACAPURU)
+Perícia ADM (MANAQUIRI)
+Perícia ADM (MAUÉS)
+Perícia ADM (NOVO AIRÃO)
+Perícia ADM (ONLINE)
+Perícia ADM (PARINTINS)
+Perícia ADM (PORTO VELHO - UNID 1)
+Perícia ADM (PORTO VELHO - UNID 2)
+Perícia ADM (PRESIDENTE FIGUEIREDO)
+Perícia ADM (RIO PRETO DA EVA)
+Perícia ADM (SÃO JOSÉ)
+Perícia ADM Exigência (ATRIUM)
+Perícia ADM Exigência (CACHOEIRINHA)
+Perícia ADM Exigência (CAREIRO)
+Perícia ADM Exigência (CIDADE NOVA)
+Perícia ADM Exigência (COMPENSA)
+Perícia ADM Exigência (CUIABÁ)
+Perícia ADM Exigência (IRANDUBA)
+Perícia ADM Exigência (ITACOATIARA)
+Perícia ADM Exigência (LÁBREA)
+Perícia ADM Exigência (MANACAPURU)
+Perícia ADM Exigência (ONLINE)
+Perícia ADM Exigência (PORTO VELHO - UNID 1)
+Perícia ADM Exigência (PORTO VELHO - UNID 2)
+Perícia ADM Exigência (PRESIDENTE FIGUEIREDO)
+Perícia ADM Exigência (RIO PRETO DA EVA)
+Perícia ADM Exigência (SÃO JOSÉ)
+Perícia ADM Exigência (URUCURITUBA)
+Solicitações de Documentos","Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada,
+Previdenciario,Acompanhamento ADM,Acompanhamento ADM,Exigência,"Acompanhamento de Reabilitação
+Agendar Perícia ADM - Exigência
+Avaliação Social ADM Exigência (ATRIUM)
+Avaliação Social ADM Exigência (CACHOEIRINHA)
+Avaliação Social ADM Exigência (CAREIRO)
+Avaliação Social ADM Exigência (CIDADE NOVA)
+Avaliação Social ADM Exigência (COMPENSA)
+Avaliação Social ADM Exigência (HUMAITÁ)
+Avaliação Social ADM Exigência (ITACOATIARA)
+Avaliação Social ADM Exigência (MANACAPURU)
+Avaliação Social ADM Exigência (ONLINE)
+Avaliação Social ADM Exigência (PORTO VELHO - UNID 1)
+Avaliação Social ADM Exigência (PORTO VELHO - UNID 2)
+Avaliação Social ADM Exigência (PRESIDENTE FIGUEIREDO)
+Avaliação Social ADM Exigência (RIO PRETO DA EVA)
+Avaliação Social ADM Exigência (SÃO JOSÉ)
+Avaliação Social ADM Exigência (URUCURITUBA)
+Cumprimento de Exigência
+Perícia ADM
+Perícia ADM (ATRIUM)
+Perícia ADM (BARREIRINHA) - Ajustar
+Perícia ADM (CACHOEIRINHA)
+Perícia ADM (CAREIRO)
+Perícia ADM (CIDADE NOVA)
+Perícia ADM (COMPENSA)
+Perícia ADM (HUMAITÁ)
+Perícia ADM (IRANDUBA)
+Perícia ADM (ITACOATIARA)
+Perícia ADM (LÁBREA)
+Perícia ADM (MANACAPURU)
+Perícia ADM (MANAQUIRI)
+Perícia ADM (MAUÉS)
+Perícia ADM (NOVO AIRÃO)
+Perícia ADM (ONLINE)
+Perícia ADM (PARINTINS)
+Perícia ADM (PORTO VELHO - UNID 1)
+Perícia ADM (PORTO VELHO - UNID 2)
+Perícia ADM (PRESIDENTE FIGUEIREDO)
+Perícia ADM (RIO PRETO DA EVA)
+Perícia ADM (SÃO JOSÉ)
+Perícia ADM Exigência (ATRIUM)
+Perícia ADM Exigência (CACHOEIRINHA)
+Perícia ADM Exigência (CAREIRO)
+Perícia ADM Exigência (CIDADE NOVA)
+Perícia ADM Exigência (COMPENSA)
+Perícia ADM Exigência (CUIABÁ)
+Perícia ADM Exigência (IRANDUBA)
+Perícia ADM Exigência (ITACOATIARA)
+Perícia ADM Exigência (LÁBREA)
+Perícia ADM Exigência (MANACAPURU)
+Perícia ADM Exigência (ONLINE)
+Perícia ADM Exigência (PORTO VELHO - UNID 1)
+Perícia ADM Exigência (PORTO VELHO - UNID 2)
+Perícia ADM Exigência (PRESIDENTE FIGUEIREDO)
+Perícia ADM Exigência (RIO PRETO DA EVA)
+Perícia ADM Exigência (SÃO JOSÉ)
+Perícia ADM Exigência (URUCURITUBA)
+Solicitações de Documentos",Iniciado,Informa que a pendencia ja esta sendo tratada,
+Previdenciario,Denúncia,Denúncia,Análise,"Denúncia Realizada
+Fazer Denúncia
+Fazer Denúncia - Acréscimo 25%
+Fazer Denúncia - Aposentadorias
+Fazer Denúncia - Aux Acidente 50%
+Fazer Denúncia - Aux por Incapacidade (Urbano e Rural)
+Fazer Denúncia - BPC Idoso ou Deficiente
+Fazer Denúncia - Cadastro de Rep. Legal
+Fazer Denúncia - PAB ou Reativação
+Fazer Denúncia - Pensão por Morte (Urbana e Rural)
+Fazer Denúncia - Salário Maternidade
+Fazer Denúncia - Seguro Defeso","Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada,
+Previdenciario,Denúncia,Denúncia,Análise,"Denúncia Realizada
+Fazer Denúncia
+Fazer Denúncia - Acréscimo 25%
+Fazer Denúncia - Aposentadorias
+Fazer Denúncia - Aux Acidente 50%
+Fazer Denúncia - Aux por Incapacidade (Urbano e Rural)
+Fazer Denúncia - BPC Idoso ou Deficiente
+Fazer Denúncia - Cadastro de Rep. Legal
+Fazer Denúncia - PAB ou Reativação
+Fazer Denúncia - Pensão por Morte (Urbana e Rural)
+Fazer Denúncia - Salário Maternidade
+Fazer Denúncia - Seguro Defeso",Iniciado,Informa que a pendencia ja esta sendo tratada,
+Previdenciario,Benefício ADM - Deferido,Benefício ADM - Deferido,Implantação,"Benefício ADM - Deferido
+Benefício ADM - Deferido REENVIO
+Benefício ADM - Deferido Temporariamente
+Benefício ADM - Deferido em Perícia Revisional
+Benefício Implantado
+PAB Concedido
+Prorrogação de Benefício ADM
+Prorrogação de Benefício ADM - Deferido","Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada pelo setor de implantação,
+Previdenciario,Benefício ADM - Deferido,Benefício ADM - Deferido,Implantação,"Benefício ADM - Deferido
+Benefício ADM - Deferido REENVIO
+Benefício ADM - Deferido Temporariamente
+Benefício ADM - Deferido em Perícia Revisional
+Benefício Implantado
+PAB Concedido
+Prorrogação de Benefício ADM
+Prorrogação de Benefício ADM - Deferido",Iniciado,Informa que a pendencia ja esta sendo tratada,
+Previdenciario,Benefício ADM - Indeferido,Benefício ADM - Indeferido,Implantação,Benefício ADM - Indeferido,"Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada,
+Previdenciario,Benefício ADM - Indeferido,Benefício ADM - Indeferido,Implantação,Benefício ADM - Indeferido,Iniciado,Informa que a pendencia ja esta sendo tratada,
+Previdenciario,Implantação,Pré-Acordo,Implantação,Pré-Acordo,"Pendente, Não Cumprido e Iniciado",Setor de implantação envio o calculo do acordo para Unidade,
+Previdenciario,Implantação,Acordo Agendado,Implantação,Acordo Agendado,"Pendente, Não Cumprido e Iniciado",Aguardando o cliente vir no escritorio para fazer o acordo,
+Previdenciario,Implantação,Acordo Agendado,Implantação,Acordo Realizado,"Pendente, Não Cumprido e Iniciado",Voltar para o setor de implantação para verificar se o acordo foi efetuado e se os valores batem com o calculado,
+Previdenciario,Análise Final Previdenciária,Análise Final Previdenciária,Análise,Análise Final,"Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada pelo setor de implantação,
+Previdenciario,Análise Final Previdenciária,Análise Final Previdenciária,Análise,Análise Final,Iniciado,Informa que a pendencia ja esta sendo tratada,
+Cível,Análise Final Cível,Análise Final Cível,Análise,Tentativa Cível,"Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada pelo setor de implantação,
+Cível,Análise Final Cível,Análise Final Cível,Análise,Tentativa Cível,Iniciado,Informa que a pendencia ja esta sendo tratada,
+Previdenciario,Confecção,Pastas a serem distribuidas,Inicial,Enviada p/ Confecção,"Pendente, Não Cumprido e Iniciado",Informa que a tarefa ainda nao esta sendo tratada,
+Previdenciario,Confecção,Inicial na Confecção,Inicial,Inicial enviada para confecção,"Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada pelo setor de implantação,
+Previdenciario,Confecção,Inicial na Confecção,Inicial,Inicial enviada para confecção,Iniciado,Informa que a tarefa ja esta sendo tratada,
+Previdenciario,Confecção,Inicial na Revisão,Inicial,Inicial enviada para revisão,"Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada pelo setor de implantação,
+Previdenciario,Confecção,Inicial na Revisão,Inicial,Inicial enviada para revisão,Iniciado,Informa que a tarefa ja esta sendo tratada,
+Previdenciario,Confecção,Inicial Revisada para Protocolar,Inicial,Inicial Revisada para Protocolar,"Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada pelo setor de implantação,
+Previdenciario,Confecção,Inicial Revisada para Protocolar,Inicial,Inicial Revisada para Protocolar,Iniciado,Informa que a tarefa ja esta sendo tratada,
+Previdenciario,Confecção,Inicial enviada ao protocolo,Inicial,Inicial enviada ao protocolo,"Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada pelo setor de implantação,
+Previdenciario,Confecção,Inicial enviada ao protocolo,Inicial,Inicial enviada ao protocolo,Iniciado,Informa que a tarefa ja esta sendo tratada,
+Cível,Confecção,Inicial enviada ao protocolo - Cível,Inicial,Inicial enviada ao protocolo - Cível,"Pendente, Não Cumprido",Informa que a tarefa ainda nao esta sendo tratada pelo setor de implantação,
+Cível,Confecção,Inicial enviada ao protocolo - Cível,Inicial,Inicial enviada ao protocolo - Cível,Iniciado,Informa que a tarefa ja esta sendo tratada,

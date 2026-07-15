@@ -1,0 +1,11 @@
+# V360 Relatório — pins obrigatórios (Streamlit Cloud + Python 3.12)
+# pyarrow==16.1.0 é CRÍTICO: versões novas dão segfault no boot.
+streamlit==1.40.2
+pandas==2.2.3
+numpy==1.26.4
+pyarrow==16.1.0
+plotly==5.24.1
+supabase==2.31.0
+streamlit-autorefresh==1.0.1
+openpyxl==3.1.5
+python-dotenv==1.0.1
