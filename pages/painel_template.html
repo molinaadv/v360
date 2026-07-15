@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Operacional · V360 Molina</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PAINEL OPERACIONAL V360 — Molina Advogados
+   HTML único, gira sozinho entre 3 telas, otimizado p/ TV.
+   Ranking e totais são CALCULADOS a partir dos cards.
+   Setup: F = tela cheia · Espaço = pausa · ← → trocar · 1/2/3 ir
+   ============================================================ */
+:root{
+  --bg:#060b14; --bg2:#0a1322;
+  --card:#0e1726; --card2:#0c1320;
+  --line:#1c2c44; --line2:#16233a;
+  --ink:#eef3fb; --muted:#7d8eaa; --muted2:#56657f;
+
+  --red:#ff4d5e;    --red-g:rgba(255,77,94,.55);
+  --orange:#ff9f1c; --orange-g:rgba(255,159,28,.5);
+  --blue:#3aa0ff;   --blue-g:rgba(58,160,255,.5);
+  --purple:#9b6bff; --purple-g:rgba(155,107,255,.5);
+  --green:#2ec16b;  --green-g:rgba(46,193,107,.5);
+  --cyan:#2fcfe6;   --cyan-g:rgba(47,207,230,.55);
+  --gold:#ffcb52;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:
+    radial-gradient(120% 80% at 18% -10%, #0e1b30 0%, transparent 55%),
+    radial-gradient(120% 90% at 100% 0%, #0c1626 0%, transparent 50%),
+    var(--bg);
+  color:var(--ink);
+  font-family:"Inter",system-ui,sans-serif;
+  overflow:hidden;height:100vh;-webkit-font-smoothing:antialiased;
+}
+.num{font-family:"Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums;line-height:.9}
+svg{display:block}
+
+/* ---------- moldura ---------- */
+.frame{display:flex;flex-direction:column;height:100vh;padding:clamp(14px,1.5vw,30px) clamp(18px,1.8vw,38px)}
+
+.topbar{display:flex;align-items:center;gap:24px;flex:0 0 auto;
+  padding-bottom:clamp(10px,1vw,18px);border-bottom:1px solid var(--line2)}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.brand .bar{width:6px;height:clamp(28px,2.6vw,46px);border-radius:99px;
+  background:linear-gradient(180deg,var(--cyan),var(--blue));box-shadow:0 0 18px var(--cyan-g)}
+.brand .name{font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  font-size:clamp(24px,2.4vw,42px);letter-spacing:.5px;white-space:nowrap}
+.brand .name b{color:var(--cyan)}
+.ptitle{flex:1;text-align:center;font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  font-size:clamp(26px,3vw,56px);letter-spacing:1px;text-transform:uppercase;
+  text-shadow:0 0 26px rgba(58,160,255,.25)}
+.meta-top{display:flex;align-items:center;gap:clamp(16px,1.8vw,34px);flex:0 0 auto}
+.mt{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.mt .ico{color:var(--cyan);opacity:.9}
+.mt .k{font-size:clamp(11px,.78vw,14px);color:var(--muted);font-weight:600;line-height:1.25}
+.mt .k b{color:var(--ink);font-weight:700}
+.mt .big{font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  font-size:clamp(22px,2.2vw,40px)}
+.mt.clock .big{color:var(--ink)}
+.mt.reinicia .big{color:var(--cyan);text-shadow:0 0 16px var(--cyan-g)}
+
+/* ---------- palco ---------- */
+.stage{position:relative;flex:1 1 auto;margin-top:clamp(12px,1.3vw,24px);min-height:0}
+.screen{position:absolute;inset:0;opacity:0;visibility:hidden;transform:translateY(16px);
+  transition:opacity .6s ease,transform .6s ease,visibility .6s;
+  display:flex;flex-direction:column;gap:clamp(12px,1.2vw,22px)}
+.screen.active{opacity:1;visibility:visible;transform:none}
+
+/* ---------- TELA 1 · SETOR ---------- */
+.setor-top{flex:1 1 auto;display:grid;gap:clamp(7px,.7vw,14px);min-height:0;overflow:hidden;
+  grid-template-columns:repeat(6,1fr)}
+.card{background:linear-gradient(180deg,var(--card),var(--card2));
+  border:1px solid var(--line);border-radius:16px;padding:clamp(8px,.7vw,14px);
+  display:flex;flex-direction:column;min-height:0;overflow:hidden;
+  box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 18px 40px -28px #000}
+.card-head{display:flex;align-items:center;gap:8px;margin-bottom:clamp(5px,.55vw,10px);
+  padding-bottom:clamp(5px,.5vw,9px);border-bottom:1px solid var(--line2)}
+.card-head .emj{font-size:clamp(20px,1.7vw,30px);line-height:1;filter:drop-shadow(0 0 10px rgba(58,160,255,.4))}
+.card-head .ttl{font-size:clamp(13px,1.05vw,19px);font-weight:800;letter-spacing:.02em;line-height:1.1}
+/* tela 2 (pendências por unidade): nome da unidade bem maior */
+section[data-screen="1"] .card-head .ttl{font-size:clamp(22px,2.2vw,44px)}
+section[data-screen="1"] .card-head .emj{font-size:clamp(24px,2vw,40px)}
+
+.mrows{display:flex;flex-direction:column;gap:clamp(3px,.35vw,7px);flex:1;justify-content:space-between}
+.mrow{display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.05);
+  border-radius:10px;padding:clamp(4px,.42vw,8px) clamp(8px,.7vw,13px)}
+.mrow .ic{width:clamp(18px,1.4vw,28px);height:clamp(18px,1.4vw,28px);flex:0 0 auto}
+.mrow .lab{flex:1;font-size:clamp(12px,.92vw,17px);font-weight:700;
+  letter-spacing:.02em;text-transform:uppercase;color:#dbe4f0}
+.mrow .val{font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  font-size:clamp(24px,2.1vw,42px);line-height:1}
+.c-red{color:var(--red)}    .v-red{color:var(--red)}
+.c-orange{color:var(--orange)} .v-orange{color:var(--orange)}
+.c-blue{color:var(--blue)}  .v-blue{color:var(--blue)}
+.c-purple{color:var(--purple)} .v-purple{color:var(--purple)}
+.c-green{color:var(--green)} .v-green{color:var(--green)}
+.c-cyan{color:var(--cyan)}  .v-cyan{color:var(--cyan)}
+
+/* card ranking */
+.rank-card .rk{display:flex;flex-direction:column;gap:clamp(6px,.7vw,12px);flex:1;justify-content:space-between}
+.rk-item{padding-bottom:clamp(6px,.7vw,12px);border-bottom:1px solid var(--line2)}
+.rk-item:last-of-type{border-bottom:none}
+.rk-head{display:flex;align-items:baseline;gap:9px;margin-bottom:3px}
+.rk-head .pos{font-family:"Barlow Condensed",sans-serif;font-weight:700;color:var(--gold);
+  font-size:clamp(16px,1.4vw,26px);text-shadow:0 0 12px rgba(255,203,82,.45)}
+.rk-head .nm{font-size:clamp(12px,1vw,18px);font-weight:800;letter-spacing:.01em}
+.rk-stats{display:flex;gap:clamp(12px,1.3vw,24px);padding-left:2px}
+.rk-stats .s{font-size:clamp(10px,.72vw,13px);color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.rk-stats .s b{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:1.5em;margin-left:5px}
+.rk-crit{margin-top:6px;font-size:clamp(9px,.7vw,12px);color:var(--muted2);font-style:italic}
+
+/* totais inferiores */
+.tot-row{flex:0 0 auto;display:grid;grid-template-columns:repeat(6,1fr);gap:clamp(10px,1vw,20px)}
+.tot{background:linear-gradient(180deg,var(--card),var(--card2));
+  border:1px solid var(--line);border-radius:16px;
+  padding:clamp(12px,1.1vw,22px) clamp(14px,1.2vw,24px);
+  display:flex;flex-direction:column;gap:clamp(6px,.6vw,12px)}
+.tot .th{display:flex;align-items:center;gap:9px}
+.tot .th .ic{width:clamp(16px,1.2vw,22px);height:clamp(16px,1.2vw,22px);filter:drop-shadow(0 0 6px currentColor)}
+.tot .th .l{font-size:clamp(10px,.78vw,14px);font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#c4d0e2}
+.tot .n{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(36px,3.6vw,70px)}
+
+/* ---------- TELA 2 · HALL DOS CAMPEÕES ---------- */
+.scr-head{flex:0 0 auto;display:flex;align-items:baseline;gap:16px}
+.scr-head .eb{font-size:clamp(12px,.95vw,17px);color:var(--cyan);font-weight:700;
+  text-transform:uppercase;letter-spacing:.28em}
+.hall{flex:1;display:grid;grid-template-columns:1.1fr .9fr;gap:clamp(18px,2vw,42px);min-height:0}
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:clamp(14px,1.6vw,32px)}
+.pod{display:flex;flex-direction:column;align-items:center;gap:12px;flex:1;max-width:230px}
+.pod .av{width:clamp(58px,5.2vw,98px);height:clamp(58px,5.2vw,98px);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-family:"Barlow Condensed",sans-serif;
+  font-weight:700;font-size:clamp(24px,2.3vw,42px);color:#06101e}
+.pod.p1 .av{background:linear-gradient(160deg,#ffe08a,var(--gold));box-shadow:0 0 30px rgba(255,203,82,.5)}
+.pod.p2 .av{background:linear-gradient(160deg,#e6eef7,#aebccd)}
+.pod.p3 .av{background:linear-gradient(160deg,#e3a877,#c98a52)}
+.pod .nm{font-size:clamp(13px,1.05vw,21px);font-weight:700;text-align:center}
+.pod .sc{font-family:"Barlow Condensed",sans-serif;font-weight:700;color:var(--gold);
+  font-size:clamp(24px,2.2vw,42px);text-shadow:0 0 16px rgba(255,203,82,.4)}
+.pod .sc small{display:block;font-size:.38em;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-top:-2px}
+.blk{width:100%;border-radius:14px 14px 0 0;display:flex;justify-content:center;padding-top:12px;
+  font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(34px,3.4vw,64px);color:rgba(6,16,30,.45)}
+.pod.p1 .blk{height:clamp(130px,16vh,210px);background:linear-gradient(180deg,var(--gold),#c79a32)}
+.pod.p2 .blk{height:clamp(96px,12vh,160px);background:linear-gradient(180deg,#b9c7d6,#8190a3)}
+.pod.p3 .blk{height:clamp(74px,9vh,120px);background:linear-gradient(180deg,#c98a52,#9c6a3e)}
+.ranklist{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);
+  border-radius:16px;padding:clamp(12px,1.2vw,24px);display:flex;flex-direction:column;justify-content:space-evenly}
+.rrow{display:flex;align-items:center;gap:clamp(12px,1.2vw,20px);padding:clamp(7px,.7vw,12px) 0;
+  border-bottom:1px solid var(--line2)}
+.rrow:last-child{border-bottom:none}
+.rrow .pos{font-family:"Barlow Condensed",sans-serif;font-weight:700;color:var(--muted);
+  font-size:clamp(20px,1.7vw,34px);width:1.5em;text-align:center}
+.rrow .ini{width:clamp(38px,3vw,54px);height:clamp(38px,3vw,54px);border-radius:50%;
+  background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:clamp(13px,1vw,19px);flex:0 0 auto}
+.rrow .who{flex:1;font-size:clamp(14px,1.1vw,22px);font-weight:700}
+.rrow .who small{display:block;color:var(--muted);font-weight:500;font-size:.66em}
+.rrow .pts{font-family:"Barlow Condensed",sans-serif;font-weight:700;color:var(--cyan);
+  font-size:clamp(22px,1.9vw,36px)}
+
+/* ---------- TELA 3 · META ---------- */
+.meta-wrap{flex:1;display:grid;grid-template-columns:.95fr 1.05fr;gap:clamp(24px,2.6vw,54px);align-items:center;min-height:0}
+.gauge{position:relative;display:flex;align-items:center;justify-content:center}
+.gauge svg{width:clamp(240px,24vw,420px);height:clamp(240px,24vw,420px);transform:rotate(-90deg)}
+.gauge .track{fill:none;stroke:rgba(255,255,255,.07);stroke-width:24}
+.gauge .prog{fill:none;stroke:url(#gg);stroke-width:24;stroke-linecap:round;
+  filter:drop-shadow(0 0 10px var(--green-g));transition:stroke-dashoffset 1.4s cubic-bezier(.2,.8,.2,1)}
+.gauge .center{position:absolute;text-align:center}
+.gauge .center .pct{font-family:"Barlow Condensed",sans-serif;font-weight:700;color:var(--green);
+  font-size:clamp(64px,7.5vw,138px);text-shadow:0 0 26px var(--green-g)}
+.gauge .center .lab{font-size:clamp(12px,1vw,18px);color:var(--muted);text-transform:uppercase;letter-spacing:.22em;font-weight:600}
+.meta-side{display:flex;flex-direction:column;gap:clamp(14px,1.5vw,28px)}
+.unidade-name{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(32px,3.2vw,60px);line-height:1}
+.kpi-row{display:flex;gap:clamp(18px,2vw,40px)}
+.kpi .v{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(38px,3.8vw,72px)}
+.kpi .v.real{color:var(--green);text-shadow:0 0 18px var(--green-g)}
+.kpi .v.falta{color:var(--red)}
+.kpi .l{font-size:clamp(11px,.92vw,17px);color:var(--muted);text-transform:uppercase;letter-spacing:.16em;font-weight:600;margin-top:4px}
+.others{display:flex;flex-direction:column;gap:clamp(11px,1.1vw,18px)}
+.ubar .h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.ubar .h .n{font-size:clamp(14px,1.1vw,22px);font-weight:700}
+.ubar .h .p{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(18px,1.6vw,30px)}
+.ubar .t{height:clamp(12px,1.2vw,20px);border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden}
+.ubar .t>i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--cyan),var(--blue))}
+.ubar.ok .t>i{background:linear-gradient(90deg,var(--green),#6fe0a6)}
+
+/* ---------- rodapé ---------- */
+.footer{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;
+  margin-top:clamp(10px,1vw,18px);padding-top:clamp(8px,.9vw,16px);border-top:1px solid var(--line2)}
+.foot-info{display:flex;gap:clamp(20px,2.4vw,48px);flex-wrap:wrap}
+.fi{display:flex;align-items:center;gap:8px;font-size:clamp(11px,.85vw,15px);color:var(--muted);font-weight:600}
+.fi b{color:var(--ink);font-weight:700}.fi .hi{color:var(--cyan);font-weight:700}.fi .ico{color:var(--cyan);opacity:.85}
+.dots{display:flex;gap:12px;align-items:center}
+.dp{position:relative;width:clamp(40px,3.4vw,70px);height:7px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;cursor:pointer}
+.dp>i{position:absolute;inset:0;width:0;border-radius:99px;background:var(--muted)}
+.dp.active{background:rgba(47,207,230,.22)}.dp.active>i{background:var(--cyan)}
+
+@media (prefers-reduced-motion:reduce){.screen{transition:opacity .25s}*{animation:none!important}}
+
+/* ---------- TELA 3 · CAMPEÕES POR SUBTIPO ---------- */
+.campsub{flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:minmax(0,1fr);gap:clamp(10px,1vw,20px);min-height:0;overflow:hidden}
+.cs-card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:16px;padding:clamp(12px,1.1vw,20px);display:flex;flex-direction:column;overflow:hidden}
+.cs-st{font-size:clamp(13px,1.1vw,21px);font-weight:800;color:#dbe4f0;text-transform:uppercase;letter-spacing:.02em;margin-bottom:clamp(6px,.8vw,14px);padding-bottom:clamp(5px,.6vw,10px);border-bottom:1px solid var(--line2)}
+.cs-two{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:clamp(8px,.9vw,16px);min-height:0}
+.cs-p{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:clamp(8px,.9vw,16px);display:flex;flex-direction:column;justify-content:center;gap:2px}
+.cs-lab{font-size:clamp(10px,.78vw,14px);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.cs-nm{font-size:clamp(14px,1.2vw,22px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-q{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(28px,2.6vw,50px);line-height:1}
+.semana .cs-q{color:var(--cyan)} .mes .cs-q{color:var(--green)}
+
+/* ---------- TELA 4 · META (velocímetros) ---------- */
+.metas-grid{flex:1;display:grid;grid-template-columns:1fr;grid-auto-rows:1fr;
+  gap:clamp(12px,1.3vw,24px);min-height:0}
+.uni-block{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);
+  border-radius:18px;padding:clamp(10px,1vw,20px) clamp(20px,2vw,44px);
+  display:grid;grid-template-columns:auto 1fr 1fr;align-items:center;justify-items:center;
+  gap:clamp(18px,2.4vw,56px);min-height:0}
+.uni-name{justify-self:start;display:flex;flex-direction:column;gap:8px;
+  padding-right:clamp(14px,1.8vw,36px);border-right:1px solid var(--line2)}
+.uni-name .u{font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  font-size:clamp(40px,4.6vw,88px);line-height:.95;letter-spacing:.5px}
+.uni-name .tag{font-size:clamp(11px,.9vw,17px);color:var(--muted);text-transform:uppercase;
+  letter-spacing:.18em;font-weight:600}
+.gwrap{display:flex;flex-direction:row;align-items:center;justify-content:center;
+  gap:clamp(10px,1.2vw,24px);min-width:0;min-height:0}
+.gg-svg{position:relative;flex:0 0 auto}
+.gg-svg svg{width:clamp(190px,17vw,320px);height:clamp(190px,17vw,320px);transform:rotate(135deg)}
+.gg-track{fill:none;stroke:rgba(255,255,255,.07);stroke-width:16}
+.gg-prog{fill:none;stroke-width:16;stroke-linecap:round;
+  transition:stroke-dashoffset 1.3s cubic-bezier(.2,.8,.2,1),stroke .6s ease}
+.gg-center{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center}
+.gg-center .pct{font-family:"Barlow Condensed",sans-serif;font-weight:700;line-height:.9;
+  font-size:clamp(52px,5.6vw,104px)}
+.gg-center .plab{font-size:clamp(10px,.82vw,15px);color:var(--muted);text-transform:uppercase;
+  letter-spacing:.16em;font-weight:600;margin-top:4px}
+.gg-cat{font-size:clamp(15px,1.4vw,28px);font-weight:800;text-transform:uppercase;
+  letter-spacing:.03em;color:#dbe4f0;line-height:1.15;flex:0 0 auto;max-width:6em}
+.g-red{color:var(--red)}   .g-orange{color:var(--orange)}  .g-green{color:var(--green)}
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     >>> DADOS DO PAINEL <<<  (troque os números OU ligue no Supabase no fim)
+     Ranking e totais são calculados automaticamente a partir das áreas.
+     ====================================================================== -->
+<script>
+/*__DADOS__*/
+</script>
+<!-- ===================== fim dos dados ===================== -->
+
+<div class="frame">
+
+  <!-- topo -->
+  <div class="topbar">
+    <div class="brand">
+      <span class="bar"></span>
+      <span class="name">V360 <b>MOLINA</b></span>
+    </div>
+    <div class="ptitle" id="ptitle">PAINEL OPERACIONAL</div>
+    <div class="meta-top">
+      <div class="mt"><span class="ico" id="icoSync"></span>
+        <span class="k">Atualização automática<br><b id="cadencia">a cada 5 minutos</b></span></div>
+      <div class="mt clock"><span class="ico" id="icoClock"></span>
+        <span><span class="big num" id="clock">--:--:--</span><br><span class="k" id="dateTop">—</span></span></div>
+      <div class="mt reinicia"><span class="ico" id="icoTimer"></span>
+        <span class="k">Reinicia em:<br><span class="big num" id="reinicia">--:--</span></span></div>
+    </div>
+  </div>
+
+  <!-- palco -->
+  <div class="stage">
+
+    <!-- TELA 1 · SETOR -->
+    <section class="screen" data-screen="0">
+      <div class="setor-top" id="setorTop"></div>
+      <div class="tot-row" id="totRow"></div>
+    </section>
+
+    <!-- TELA 2 · PENDÊNCIAS POR UNIDADE -->
+    <section class="screen" data-screen="1">
+      <div class="setor-top" id="setorTop2"></div>
+      <div class="tot-row" id="totRow2"></div>
+    </section>
+
+        <!-- TELA 3 · DESTAQUE POR ASSUNTO -->
+    <section class="screen" data-screen="2">
+      <div class="scr-head"><span class="eb">Reconhecimento</span></div>
+      <div class="campsub" id="campSub"></div>
+    </section>
+
+    <!-- TELA 4 · META (VELOCÍMETROS) -->
+    <section class="screen" data-screen="3">
+      <div class="scr-head"><span class="eb">Meta do mês · Atrium & Online</span></div>
+      <div class="metas-grid" id="metasGrid"></div>
+    </section>
+
+  </div>
+
+  <!-- rodapé -->
+  <div class="footer">
+    <div class="foot-info">
+      <div class="fi"><span class="ico" id="icoDb"></span>Fonte de dados: <b id="fonte">Legal One API</b></div>
+      <div class="fi"><span class="ico" id="icoClock2"></span>Painel atualizado em: <b id="updFull">—</b></div>
+      <div class="fi"><span class="ico" id="icoTimer2"></span>Próxima atualização: <span class="hi" id="proxAtt">—</span></div>
+    </div>
+    <div class="dots">
+      <div class="dp" data-go="0"><i></i></div>
+      <div class="dp" data-go="1"><i></i></div>
+      <div class="dp" data-go="2"><i></i></div>
+      <div class="dp" data-go="3"><i></i></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ===================== ÍCONES ===================== */
+const ICN = {
+  atrasados:`<svg class="ic c-red" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="currentColor"/></svg>`,
+  pendDia:`<svg class="ic c-orange" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8.5 3v4M15.5 3v4" stroke-linecap="round"/></svg>`,
+  pendFut:`<svg class="ic c-blue" viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.2h8a2 2 0 0 1 2 2v8.8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`,
+  total:`<svg class="ic c-purple" viewBox="0 0 24 24" fill="currentColor"><path d="M6 2.5h8.5L19 7v14.5H6z"/><path d="M14 2.5v5h5" fill="#0c1320"/></svg>`,
+  cumpDia:`<svg class="ic c-green" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.6 2.6L16 9.5" fill="none" stroke="#0c1320" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  cumpMes:`<svg class="ic c-cyan" viewBox="0 0 24 24" fill="currentColor"><rect x="3.5" y="13" width="4.2" height="8" rx="1"/><rect x="10" y="8" width="4.2" height="13" rx="1"/><rect x="16.5" y="4" width="4.2" height="17" rx="1"/></svg>`,
+  sync:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 12a9 9 0 0 1 15-6.7L21 8M21 4v4h-4M3 20v-4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  clock:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2" stroke-linecap="round"/></svg>`,
+  timer:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  db:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>`,
+  emj:{building:"🏢",calendar:"📅",folder:"📁",shield:"🛡️",megaphone:"📢"},
+};
+const setIco=(id,svg)=>{const e=document.getElementById(id);if(e)e.innerHTML=svg;};
+setIco("icoSync",ICN.sync);setIco("icoClock",ICN.clock);setIco("icoTimer",ICN.timer);
+setIco("icoDb",ICN.db);setIco("icoClock2",ICN.clock);setIco("icoTimer2",ICN.timer);
+
+/* ===================== HELPERS ===================== */
+const nf = n => new Intl.NumberFormat("pt-BR").format(n);
+const totalPend = a => a.pendDia + a.pendFut + (a.atrasados||0); // total = atrasados + dia + futuras
+const iniciais = nome => { const p=nome.trim().split(/\s+/); return ((p[0]?.[0]||"")+(p[p.length-1]?.[0]||"")).toUpperCase(); };
+// nome curto p/ TV: primeiro + último (BRENDA RENATA NASCIMENTO DOS SANTOS -> BRENDA SANTOS)
+const encurtaNome = nome => {
+  if(!nome || nome==="—") return nome||"—";
+  const p = nome.trim().split(/\s+/);
+  if(p.length<=2) return nome;
+  return p[0] + " " + p[p.length-1];
+};
+
+/* ===================== TELA 1 · SETOR ===================== */
+function pintarSetor(A, grid, totId){
+
+  const cards = A.map(a=>{
+    const tot = totalPend(a);
+    const row=(ic,lab,val,cls)=>`<div class="mrow"><span style="display:inline-flex" class="ic ${cls}">${ic}</span>
+      <span class="lab">${lab}</span><span class="val v-${cls.replace('c-','')}">${nf(val)}</span></div>`;
+    return `<div class="card">
+      <div class="card-head"><span class="emj">${ICN.emj[a.icone]||"📁"}</span><span class="ttl">${a.nome}</span></div>
+      <div class="mrows">
+        ${row(ICN.atrasados,"Atrasados",a.atrasados,"c-red")}
+        ${row(ICN.pendDia,"Pendências do dia",a.pendDia,"c-orange")}
+        ${row(ICN.pendFut,"Pendências futuras",a.pendFut,"c-blue")}
+        ${row(ICN.total,"Total de pendências",tot,"c-purple")}
+        ${row(ICN.cumpDia,"Cumpridos do dia",a.cumpridoDia,"c-green")}
+        ${row(ICN.cumpMes,"Cumpridos do mês",a.cumpridoMes,"c-cyan")}
+      </div></div>`;
+  }).join("");
+
+  // ranking: 1º menos atrasados, desempate por mais cumpridos no mês
+  const rk = [...A].sort((x,y)=> x.atrasados-y.atrasados || y.cumpridoMes-x.cumpridoMes);
+  const rankCard = `<div class="card rank-card">
+    <div class="card-head"><span class="emj">🏆</span><span class="ttl">Ranking do Setor</span></div>
+    <div class="rk">
+      ${rk.map((a,i)=>`<div class="rk-item">
+        <div class="rk-head"><span class="pos">${i+1}º</span><span class="nm">${a.nome}</span></div>
+        <div class="rk-stats">
+          <span class="s">Atrasados<b class="c-red">${a.atrasados}</b></span>
+          <span class="s">Total<b class="c-purple">${totalPend(a)}</b></span>
+          <span class="s">Cumpridos mês<b class="c-green">${a.cumpridoMes}</b></span>
+        </div></div>`).join("")}
+      <div class="rk-crit">Critério: 1º Menos atrasados · 2º Mais cumpridos no mês</div>
+    </div></div>`;
+
+  grid.innerHTML = cards;  // ranking removido — só as pendências
+  grid.style.gridTemplateColumns = "repeat(" + A.length + ", 1fr)";  // preenche a largura
+
+  // totais inferiores (somatório)
+  const sum = k => A.reduce((s,a)=>s+(k==='total'?totalPend(a):a[k]),0);
+  const tots = [
+    ["Total atrasados", sum("atrasados"), "c-red", ICN.atrasados],
+    ["Pendências do dia", sum("pendDia"), "c-orange", ICN.pendDia],
+    ["Pendências futuras", sum("pendFut"), "c-blue", ICN.pendFut],
+    ["Total de pendências", sum("total"), "c-purple", ICN.total],
+    ["Cumpridos do dia", sum("cumpridoDia"), "c-green", ICN.cumpDia],
+    ["Cumpridos do mês", sum("cumpridoMes"), "c-cyan", ICN.cumpMes],
+  ];
+  document.getElementById(totId).innerHTML = tots.map(([l,v,c,ic])=>`
+    <div class="tot"><div class="th"><span style="display:inline-flex" class="ic ${c}">${ic}</span>
+      <span class="l">${l}</span></div><div class="n v-${c.replace('c-','')}">${nf(v)}</div></div>`).join("");
+}
+
+function renderSetor(){ pintarSetor(DADOS.setor.areas, document.getElementById("setorTop"), "totRow"); }
+function renderSetor2(){ if(DADOS.setor2) pintarSetor(DADOS.setor2.areas, document.getElementById("setorTop2"), "totRow2"); }
+
+/* ===================== TELA 2 · CAMPEÕES ===================== */
+function renderCampeoes(){
+  const c=[...DADOS.campeoes].sort((a,b)=>b.pontos-a.pontos);
+  const t3=c.slice(0,3), ordem=[t3[1],t3[0],t3[2]].filter(Boolean);
+  const cls={},med={};
+  if(t3[0]){cls[t3[0].nome]="p1";med[t3[0].nome]="1";}
+  if(t3[1]){cls[t3[1].nome]="p2";med[t3[1].nome]="2";}
+  if(t3[2]){cls[t3[2].nome]="p3";med[t3[2].nome]="3";}
+  document.getElementById("podium").innerHTML = ordem.map(p=>`
+    <div class="pod ${cls[p.nome]}"><div class="av">${iniciais(p.nome)}</div>
+      <div class="nm">${p.nome}</div>
+      <div class="sc num">${nf(p.pontos)}<small>${p.area}</small></div>
+      <div class="blk">${med[p.nome]}</div></div>`).join("");
+  document.getElementById("ranklist").innerHTML = c.slice(3,9).map((p,i)=>`
+    <div class="rrow"><span class="pos num">${i+4}</span><span class="ini">${iniciais(p.nome)}</span>
+      <span class="who">${p.nome}<small>${p.area}</small></span><span class="pts num">${nf(p.pontos)}</span></div>`).join("");
+}
+
+/* ===================== TELA 3 · META ===================== */
+let gaugeOffset=0;
+function renderMeta(){
+  const m=DADOS.metaUnidade, pct=Math.min(100,Math.round(m.realizado/m.meta*100)), falta=Math.max(0,m.meta-m.realizado);
+  document.getElementById("uNome").textContent=DADOS.unidade;
+  document.getElementById("kReal").textContent=nf(m.realizado);
+  document.getElementById("kMeta").textContent=nf(m.meta);
+  document.getElementById("kFalta").textContent=nf(falta);
+  document.getElementById("gaugePct").textContent=pct+"%";
+  const r=124,circ=2*Math.PI*r,prog=document.getElementById("gaugeProg");
+  prog.style.strokeDasharray=circ;prog.style.strokeDashoffset=circ;gaugeOffset=circ*(1-pct/100);
+  document.getElementById("otherUnits").innerHTML=DADOS.outrasUnidades.map(u=>{
+    const p=Math.min(100,Math.round(u.realizado/u.meta*100));
+    return `<div class="ubar ${p>=100?'ok':''}"><div class="h"><span class="n">${u.nome}</span><span class="p num">${p}%</span></div>
+      <div class="t"><i style="width:${p}%"></i></div></div>`;}).join("");
+}
+
+/* ===================== RELÓGIO / ATUALIZAÇÃO ===================== */
+const meses=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+let proximaAtt;
+function setProxima(){ proximaAtt=new Date(Date.now()+(DADOS.minutosAtualizacao||5)*60000); }
+function fmtHora(d){return d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});}
+function fmtData(d){return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;}
+function tick(){
+  const d=new Date();
+  document.getElementById("clock").textContent=fmtHora(d);
+  document.getElementById("dateTop").textContent=fmtData(d);
+  // reinicia em
+  let s=Math.max(0,Math.round((proximaAtt-d)/1000));
+  document.getElementById("reinicia").textContent=`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  document.getElementById("proxAtt").textContent=fmtHora(proximaAtt).slice(0,5);
+  if(s<=0){ atualizar(); }
+}
+function carimbar(){
+  const d=new Date();
+  document.getElementById("updFull").textContent=`${fmtData(d)} ${fmtHora(d).slice(0,5)}`;
+  document.getElementById("cadencia").textContent=`a cada ${DADOS.minutosAtualizacao||5} minutos`;
+  document.getElementById("fonte").textContent=DADOS.fonteDados||"Legal One API";
+}
+function atualizar(){
+  if(DADOS.atualizarSupabaseMin>0 && typeof carregarDoSupabase==="function") carregarDoSupabase();
+  renderTudo(); setProxima(); carimbar();
+}
+function renderCampSub(){
+  const C = DADOS.campeoesSubtipo||[];
+  const box = document.getElementById("campSub");
+  if(!box) return;
+  box.innerHTML = C.map(c=>`
+    <div class="cs-card">
+      <div class="cs-st">${c.subtipo}</div>
+      <div class="cs-two">
+        <div class="cs-p semana"><div class="cs-lab">Semana</div><div class="cs-nm">${encurtaNome(c.semana.nome)}</div><div class="cs-q num">${nf(c.semana.qtd)}</div></div>
+        <div class="cs-p mes"><div class="cs-lab">Mês</div><div class="cs-nm">${encurtaNome(c.mes.nome)}</div><div class="cs-q num">${nf(c.mes.qtd)}</div></div>
+      </div>
+    </div>`).join("");
+}
+/* ===================== TELA 4 · META (VELOCÍMETROS) ===================== */
+// cor por faixa: <70% vermelho · 70–99% laranja · 100%+ verde
+function corPct(p){
+  if(p >= 100) return {cls:"g-green",  stroke:"var(--green)",  glow:"var(--green-g)"};
+  if(p >= 70)  return {cls:"g-orange", stroke:"var(--orange)", glow:"var(--orange-g)"};
+  return              {cls:"g-red",    stroke:"var(--red)",    glow:"var(--red-g)"};
+}
+// um velocímetro grande (arco 270°); mostra só a % — sem quantidade
+function gaugeSVG(g, cat){
+  const pct = g.pct||0;
+  const capped = Math.min(100, pct);           // arco trava em 100%
+  const c = corPct(pct);
+  const R = 80, GAP = 0.75;                     // GAP=0.75 → arco de 270° (3/4)
+  const circ = 2*Math.PI*R;
+  const arco = circ*GAP;                        // comprimento visível do trilho
+  const off  = arco*(1-capped/100);             // quanto "falta" preencher
+  const dash = `${arco} ${circ}`;
+  return `
+    <div class="gwrap">
+      <div class="gg-svg">
+        <svg viewBox="0 0 200 200">
+          <circle class="gg-track" cx="100" cy="100" r="${R}"
+                  style="stroke-dasharray:${dash}"/>
+          <circle class="gg-prog"  cx="100" cy="100" r="${R}"
+                  style="stroke:${c.stroke};stroke-dasharray:${dash};
+                         stroke-dashoffset:${off};filter:drop-shadow(0 0 8px ${c.glow})"/>
+        </svg>
+        <div class="gg-center">
+          <span class="pct ${c.cls}">${pct}%</span>
+          <span class="plab">da meta</span>
+        </div>
+      </div>
+      <div class="gg-cat">${cat}</div>
+    </div>`;
+}
+function renderMetas(){
+  const box = document.getElementById("metasGrid");
+  if(!box) return;
+  const M = DADOS.metasUnidades || [];
+  box.innerHTML = M.map(u=>`
+    <div class="uni-block">
+      <div class="uni-name"><span class="u">${u.unidade}</span><span class="tag">Unidade</span></div>
+      ${gaugeSVG(u.abertas,  "Pastas Abertas")}
+      ${gaugeSVG(u.enviadas, "Pastas Enviadas")}
+    </div>`).join("");
+}
+
+function renderTudo(){ renderSetor(); renderSetor2(); renderCampSub(); renderMetas(); }
+
+setProxima(); renderTudo(); carimbar(); tick(); setInterval(tick,1000);
+
+/* ===================== ROTAÇÃO ===================== */
+const screens=[...document.querySelectorAll(".screen")].slice(0,4);
+const dots=[...document.querySelectorAll(".dp")].slice(0,4);
+const titulos=[ (DADOS.setor.titulo||"Painel Operacional").toUpperCase(), ((DADOS.setor2&&DADOS.setor2.titulo)||"Pendências por Unidade").toUpperCase(), "DESTAQUE POR ASSUNTO", "META DO MÊS" ];
+let idx=0,pausado=false,t0=0;  // rodízio tela 1 <-> tela 2
+const DUR=()=>{const s=DADOS.segundosPorTela; return ((Array.isArray(s)?s[idx]:s)||16)*1000;};
+function animaGauge(){const p=document.getElementById("gaugeProg");requestAnimationFrame(()=>p.style.strokeDashoffset=gaugeOffset);}
+function mostrar(i){
+  idx=(i+screens.length)%screens.length;
+  screens.forEach((s,k)=>s.classList.toggle("active",k===idx));
+  dots.forEach((d,k)=>{d.classList.toggle("active",k===idx);d.querySelector("i").style.width="0%";});
+  document.getElementById("ptitle").textContent=titulos[idx];
+  t0=performance.now();
+}
+function loop(now){
+  if(!pausado){const p=Math.min(1,(now-t0)/DUR());dots[idx].querySelector("i").style.width=(p*100)+"%";if(p>=1)mostrar(idx+1);}
+  else t0=now;
+  requestAnimationFrame(loop);
+}
+mostrar(0);requestAnimationFrame(loop);
+dots.forEach(d=>d.addEventListener("click",()=>mostrar(+d.dataset.go)));
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight")mostrar(idx+1);
+  else if(e.key==="ArrowLeft")mostrar(idx-1);
+  else if(e.key===" "){e.preventDefault();pausado=!pausado;t0=performance.now();}
+  else if(e.key==="f"||e.key==="F"){document.fullscreenElement?document.exitFullscreen?.():document.documentElement.requestFullscreen?.();}
+  else if(["1","2","3","4"].includes(e.key))mostrar(+e.key-1);
+});
+
+/* ===================== (OPCIONAL) SUPABASE =====================
+   Preencha ANON (chave pública) e ajuste as views/colunas reais.
+   Depois ponha atualizarSupabaseMin > 0 lá no DADOS.
+
+async function carregarDoSupabase(){
+  const URL="https://sevpcpjryyryrztobqit.supabase.co";
+  const ANON="SUA_CHAVE_ANON_PUBLICA";
+  const h={apikey:ANON,Authorization:"Bearer "+ANON};
+  try{
+    // exemplo — troque pelas colunas reais:
+    // const dash = await (await fetch(`${URL}/rest/v1/vw_v360_dashboard?select=*&setor=eq.ADM`,{headers:h})).json();
+    // DADOS.setor.areas = dash.map(r=>({nome:r.area,icone:"folder",atrasados:r.atrasados,pendDia:r.pend_dia,pendFut:r.pend_futuras,cumpridoDia:r.cumpridos_dia,cumpridoMes:r.cumpridos_mes}));
+  }catch(err){console.error("Supabase:",err);}
+}
+================================================================ */
+</script>
+</body>
+</html>
