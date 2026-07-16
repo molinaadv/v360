@@ -26,9 +26,17 @@ import pagina_mapa
 import pagina_performance
 import pagina_comparativo
 import pagina_audiencias
-import pagina_captacao
 import pagina_tv
 import pagina_usuarios
+
+# módulo opcional: se falhar ao importar, NÃO derruba o app inteiro —
+# a página "V360 Clientes" mostra um aviso, o resto continua funcionando.
+try:
+    import pagina_captacao
+    _ERRO_CAPTACAO = None
+except Exception as _e:
+    pagina_captacao = None
+    _ERRO_CAPTACAO = _e
 
 try:
     import painel_tv_operacional as tvop
@@ -204,12 +212,17 @@ try:
     elif pagina == "Audiencias":
         pagina_audiencias.render(df_f, df_comp_f, ano_filtro, mes_filtro)
     elif pagina == "Captacao":
-        # leads da captação (view/tabela própria); recorte por unidade quando aplicável
-        df_leads = data.carregar_leads()
-        permitidas = auth.unidades_permitidas()
-        if permitidas is not None and not df_leads.empty and "unidade" in df_leads.columns:
-            df_leads = df_leads[df_leads["unidade"].astype(str).isin(permitidas)]
-        pagina_captacao.render(df_leads)
+        if pagina_captacao is None:
+            st.error("A página 'V360 Clientes' não pôde ser carregada.")
+            if _ERRO_CAPTACAO is not None:
+                st.exception(_ERRO_CAPTACAO)
+        else:
+            # leads da captação; recorte por unidade quando aplicável
+            df_leads = data.carregar_leads()
+            permitidas = auth.unidades_permitidas()
+            if permitidas is not None and not df_leads.empty and "unidade" in df_leads.columns:
+                df_leads = df_leads[df_leads["unidade"].astype(str).isin(permitidas)]
+            pagina_captacao.render(df_leads)
     elif pagina == "TV":
         pagina_tv.render(df_tasks, df_colabs, df_metas)
     elif pagina == "Usuarios":
