@@ -1,0 +1,284 @@
+# =====================================================================
+# V360 MOLINA — EXECUTIVO FASE 1  (dark, dirigido pelo indicadores_fase1.csv)
+# =====================================================================
+# Port do relatorio_fase1.py para o app novo: mesmos 21 indicadores e a
+# mesma leitura do CSV (você ajusta subtipos/área na planilha), mas dark e
+# organizado em ABAS por grupo (menos rolagem). Fuso Manaus via data.hoje().
+# =====================================================================
+from pathlib import Path
+
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
+import data
+import theme as t
+import regras as r
+
+CSV_PADRAO = "indicadores_fase1.csv"
+STATUS_ABERTO = ["Pendente", "Não cumprido", "Iniciado"]
+STATUS_CUMPRIDO = "Cumprido"
+
+AMBAR, VERDE, AZUL, VERM, ROXO = t.ABERTO, t.CUMPRIDO, t.NEUTRO, t.ATRASADO, t.CORES["roxo"]
+
+ABERTAS = ["Pastas Abertas Previdenciarias e Meta", "Pastas Abertas Cível", "Pastas Abertas Trabalhista"]
+PEND_ANALISE = ["Pendencia de pastas abertas", "Pendencia de pastas abertas - Iniciadas"]
+
+SECOES = [
+    {"titulo": "Atendimento Novo — Pendentes", "indicadores": ["Colaborador que abriu mais pastas ( destaque da meta )"], "subtipos": ["Atendimento Novo"], "modo": "pendente", "dim": "unidade", "cor": AMBAR},
+    {"titulo": "Organização da Pasta — Pendentes", "indicadores": ["Organização de Pastas"], "modo": "pendente", "dim": "unidade", "cor": AMBAR},
+    {"titulo": "Pastas Abertas (todas as unidades)", "indicadores": ABERTAS, "modo": "cumprido_mes", "dim": "unidade", "cor": AZUL},
+    {"titulo": "Pastas Abertas por Área", "indicadores": ABERTAS, "modo": "cumprido_mes", "dim": "area", "chart": "pizza"},
+    {"titulo": "Pastas Abertas Previdenciária", "indicadores": ["Pastas Abertas Previdenciarias e Meta"], "modo": "cumprido_mes", "dim": "unidade", "cor": AZUL},
+    {"titulo": "Pastas Abertas Cíveis", "indicadores": ["Pastas Abertas Cível"], "modo": "cumprido_mes", "dim": "unidade", "cor": AZUL},
+    {"titulo": "Pastas Abertas Trabalhistas", "indicadores": ["Pastas Abertas Trabalhista"], "modo": "cumprido_mes", "dim": "unidade", "cor": AZUL},
+    {"titulo": "Pendências Geral", "indicadores": PEND_ANALISE, "modo": "pendente", "dim": "unidade", "cor": AMBAR},
+    {"titulo": "Tipo de Pendência", "indicadores": PEND_ANALISE, "modo": "pendente", "dim": "subtipo", "cor": AMBAR},
+    {"titulo": "Pastas Pendentes de Análise", "indicadores": ["Pastas a serem analisadas"], "modo": "pendente", "dim": "unidade", "cor": AMBAR},
+    {"titulo": "Pastas Pendentes de Agendamento", "indicadores": ["Agendamento Administrativo"], "subtipos": ["Enviado p/ Agendamento"], "modo": "pendente", "dim": "unidade", "cor": AMBAR},
+    {"titulo": "Agendamento Administrativo — Pendentes", "indicadores": ["Agendamento Administrativo"], "excluir_subtipos": ["Enviado p/ Agendamento", "Solicitar Prorrogação"], "modo": "pendente", "dim": "unidade", "cor": AMBAR},
+    {"titulo": "Acompanhamento ADM — Pendentes", "indicadores": ["Acompanhamento ADM"], "modo": "pendente", "dim": "unidade", "cor": AMBAR},
+    {"titulo": "Denúncias — Total e Atrasadas", "indicadores": ["Denúncia"],
+     "subtipos": ["Denúncia Realizada", "Fazer Denúncia", "Fazer Denúncia - Acréscimo 25%",
+                  "Fazer Denúncia - Aposentadorias", "Fazer Denúncia - Aux Acidente 50%",
+                  "Fazer Denúncia - Aux por Incapacidade (Urbano e Rural)",
+                  "Fazer Denúncia - BPC Idoso ou Deficiente", "Fazer Denúncia - Cadastro de Rep. Legal",
+                  "Fazer Denúncia - PAB ou Reativação", "Fazer Denúncia - Pensão por Morte (Urbana e Rural)",
+                  "Fazer Denúncia - Salário Maternidade", "Fazer Denúncia - Seguro Defeso"],
+     "modo": "pendente_atrasado", "dim": "unidade"},
+    {"titulo": "Benefício ADM - Deferido (criado no mês)", "indicadores": ["Benefício ADM - Deferido"], "subtipos": ["Benefício ADM - Deferido"], "modo": "criado_mes", "dim": "unidade", "cor": VERDE},
+    {"titulo": "Benefício ADM - Indeferido (criado no mês)", "indicadores": ["Benefício ADM - Indeferido"], "modo": "criado_mes", "dim": "unidade", "cor": VERM},
+    {"titulo": "Pré-Acordo — Pendente e Cumprido", "indicadores": ["Pré-Acordo"], "modo": "pendente_cumprido", "dim": "unidade"},
+    {"titulo": "Acordo Agendado — Pendente e Cumprido", "indicadores": ["Acordo Agendado"], "modo": "pendente_cumprido", "dim": "unidade"},
+    {"titulo": "Análise Final — Pendentes", "indicadores": ["Análise Final Previdenciária", "Análise Final Cível"], "subtipos": ["Análise Final"], "modo": "pendente", "dim": "unidade", "cor": ROXO},
+    {"titulo": "Enviada p/ Confecção — Pendentes e Cumpridos", "indicadores": ["Pastas a serem distribuidas"], "modo": "pendente_cumprido", "dim": "unidade"},
+    {"titulo": "Inicial enviada para Confecção — Pendentes e Cumpridos", "indicadores": ["Inicial na Confecção"], "modo": "pendente_cumprido", "dim": "unidade"},
+    {"titulo": "Inicial enviada para Revisão — Pendentes e Cumpridos", "indicadores": ["Inicial na Revisão"], "modo": "pendente_cumprido", "dim": "unidade"},
+    {"titulo": "Inicial enviada ao Protocolo (e Cível) — Pendentes e Cumpridos", "indicadores": ["Inicial enviada ao protocolo", "Inicial enviada ao protocolo - Cível"], "modo": "pendente_cumprido", "dim": "unidade"},
+]
+
+# agrupamento em abas (índices das seções, 0-based)
+GRUPOS = [
+    ("📂 Abertura & Pastas", range(0, 7)),
+    ("⚠️ Pendências & Análise", range(7, 10)),
+    ("📅 Agendamento & ADM", range(10, 13)),
+    ("📢 Denúncias", range(13, 14)),
+    ("🏛️ Benefícios & Acordos", range(14, 19)),
+    ("📝 Confecção & Protocolo", range(19, len(SECOES))),
+]
+
+
+# ---------- leitura do CSV ----------
+def _split_subtipos(cel):
+    if not isinstance(cel, str):
+        return []
+    partes = []
+    for linha in cel.split("\n"):
+        for p in linha.split(","):
+            p = p.strip()
+            if not p:
+                continue
+            if "(" in p:
+                partes.append(p)
+            else:
+                for q in p.split(" e "):
+                    q = q.strip()
+                    if q:
+                        partes.append(q)
+    return partes
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def carregar_indicadores(caminho=CSV_PADRAO):
+    p = Path(caminho)
+    if not p.exists():
+        return {}
+    df = pd.read_csv(p)
+    mapa = {}
+    for _, row in df.iterrows():
+        ind = str(row.get("INDICADOR", "")).strip()
+        if not ind:
+            continue
+        e = mapa.setdefault(ind, {"area": str(row.get("AREA", "")).strip(), "subtipos": set()})
+        for s in _split_subtipos(row.get("SUBTIPO", "")):
+            e["subtipos"].add(s)
+    return mapa
+
+
+def _subtipos_da_secao(spec, mapa):
+    if spec.get("subtipos"):
+        return list(spec["subtipos"])
+    subs = set()
+    for ind in spec["indicadores"]:
+        subs |= mapa.get(ind, {}).get("subtipos", set())
+    excluir = set(spec.get("excluir_subtipos", []))
+    return [s for s in subs if s not in excluir]
+
+
+def _area_do_subtipo(mapa):
+    out = {}
+    for _, e in mapa.items():
+        for s in e["subtipos"]:
+            out[s] = e["area"] or "Não classificado"
+    return out
+
+
+# ---------- contagem ----------
+def _entre(serie, ini, fim):
+    s = pd.to_datetime(serie, errors="coerce")
+    return s.notna() & (s.dt.date >= ini) & (s.dt.date <= fim)
+
+
+def _aplica_modo(df, subtipos, modo, ini, fim):
+    base = df[df["subtipo_nome"].isin(subtipos)]
+    if modo == "cumprido_mes":
+        return base[(base["status_nome"] == STATUS_CUMPRIDO) & _entre(base["data_conclusao"], ini, fim)]
+    if modo == "criado_mes":
+        return base[_entre(base["creation_date"], ini, fim)]
+    if modo == "pendente":
+        return base[base["status_nome"].isin(STATUS_ABERTO)]
+    return base
+
+
+def _bar_unidade(dados, cor, key, vazio="Sem dados para este recorte."):
+    g = (dados[dados["unidade_nome"].notna()].groupby("unidade_nome").size()
+         .reset_index(name="total").sort_values("total", ascending=False).head(30))
+    if g.empty:
+        st.info(vazio)
+        return
+    fig = px.bar(g, x="unidade_nome", y="total", text="total")
+    fig.update_traces(marker_color=cor, textposition="outside", cliponaxis=False, textfont_color=t.CORES["ink"])
+    st.plotly_chart(t.layout(fig, 420, f"TOTAL {t.fmt(g['total'].sum())}"), use_container_width=True, key=key)
+
+
+def _render_secao(num, spec, df, mapa, area_map, ini, fim, hoje):
+    st.markdown(f'<div class="v360-section">{num}. {spec["titulo"]}</div>', unsafe_allow_html=True)
+    subtipos = _subtipos_da_secao(spec, mapa)
+    if not subtipos:
+        st.info("Indicador não encontrado na planilha. Confira o nome no indicadores_fase1.csv.")
+        return
+    modo, dim = spec["modo"], spec.get("dim", "unidade")
+
+    if modo == "pendente_cumprido":
+        base = df[df["subtipo_nome"].isin(subtipos)]
+        pend = base[base["status_nome"].isin(STATUS_ABERTO)]
+        cump = base[(base["status_nome"] == STATUS_CUMPRIDO) & _entre(base["data_conclusao"], ini, fim)]
+        g = pd.concat([pend.groupby("unidade_nome").size().rename("Pendente"),
+                       cump.groupby("unidade_nome").size().rename("Cumprido")], axis=1).fillna(0).reset_index()
+        if g.empty:
+            st.info("Sem dados para este recorte.")
+            return
+        g = g.sort_values("Pendente", ascending=False)
+        longo = g.melt(id_vars="unidade_nome", var_name="Situação", value_name="Qtd")
+        fig = px.bar(longo, x="unidade_nome", y="Qtd", color="Situação", text="Qtd", barmode="group",
+                     color_discrete_map={"Pendente": AMBAR, "Cumprido": VERDE})
+        fig.update_traces(textposition="outside", cliponaxis=False, textfont_color=t.CORES["ink"])
+        st.plotly_chart(t.layout(fig, 440, f"Pendente: {t.fmt(g['Pendente'].sum())} · Cumprido: {t.fmt(g['Cumprido'].sum())}"),
+                        use_container_width=True, key=f"fs_{num}_pc")
+        return
+
+    if modo == "pendente_atrasado":
+        base = df[df["subtipo_nome"].isin(subtipos)]
+        pend = base[base["status_nome"].isin(STATUS_ABERTO)]
+        if "end_datetime" in pend.columns:
+            dm = pd.to_datetime(pend["end_datetime"], errors="coerce")
+            atras = pend[dm.notna() & (dm.dt.date < hoje)]
+        else:
+            atras = pend.iloc[0:0]
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**Total pendentes**")
+            _bar_unidade(pend, AMBAR, key=f"fs_{num}_pend")
+        with c2:
+            st.markdown("**Atrasadas — prazo vencido**")
+            _bar_unidade(atras, VERM, key=f"fs_{num}_atr", vazio="Nenhuma atrasada (ou sem prazo preenchido).")
+        return
+
+    dados = _aplica_modo(df, subtipos, modo, ini, fim)
+    if dados.empty:
+        st.info("Sem dados para este recorte.")
+        return
+
+    if dim == "area":
+        d = dados.copy()
+        d["_area"] = d["subtipo_nome"].map(area_map).fillna("Não classificado")
+        g = d.groupby("_area").size().reset_index(name="total").sort_values("total", ascending=False)
+        st.plotly_chart(t.donut(g["_area"], g["total"], f"TOTAL {t.fmt(g['total'].sum())}"),
+                        use_container_width=True, key=f"fs_{num}_area")
+        return
+
+    col = "subtipo_nome" if dim == "subtipo" else "unidade_nome"
+    g = (dados[dados[col].notna()].groupby(col).size().reset_index(name="total")
+         .sort_values("total", ascending=False).head(30))
+    if g.empty:
+        st.info("Sem dados para este recorte.")
+        return
+    cor = spec.get("cor", AZUL)
+    tit = f"TOTAL {t.fmt(g['total'].sum())}"
+    if dim == "subtipo":
+        fig = px.bar(g, x="total", y=col, orientation="h", text="total")
+        fig.update_layout(yaxis={"categoryorder": "total ascending"})
+    else:
+        fig = px.bar(g, x=col, y="total", text="total")
+    fig.update_traces(marker_color=cor, textposition="outside", cliponaxis=False, textfont_color=t.CORES["ink"])
+    st.plotly_chart(t.layout(fig, 430, tit), use_container_width=True, key=f"fs_{num}_bar")
+
+
+def _diagnostico(df, mapa):
+    with st.expander("🔧 Diagnóstico de nomes (subtipos que não casaram)"):
+        nos_dados = set(df["subtipo_nome"].dropna().unique())
+        achou = False
+        for num, spec in enumerate(SECOES, 1):
+            faltando = [s for s in _subtipos_da_secao(spec, mapa) if s not in nos_dados]
+            if faltando:
+                achou = True
+                st.markdown(f"**{num}. {spec['titulo']}** — {len(faltando)} sem correspondência:")
+                st.write(faltando)
+        if not achou:
+            st.success("Todos os subtipos da planilha casaram com os dados. 🎉")
+
+
+def render(df_f, df_metas_f, ano, mes):
+    ini, fim = data.periodo_mes(ano, mes)
+    hoje = data.hoje()
+    t.titulo("🏠 EXECUTIVO — FASE 1",
+             f"Período: {ini.strftime('%d/%m/%Y')} a {fim.strftime('%d/%m/%Y')} · "
+             "indicadores definidos na planilha indicadores_fase1.csv.",
+             pills=[t.pill(f"Competência · {mes:02d}/{ano}", ROXO), t.pill("ao vivo", live=True)])
+
+    if df_f is None or df_f.empty:
+        st.warning("Sem tarefas para o recorte selecionado.")
+        return
+
+    mapa = carregar_indicadores()
+    if not mapa:
+        t.nota("Não encontrei <b>indicadores_fase1.csv</b> na raiz do app. Suba o arquivo ao lado do app.py.",
+               "crit", "❌")
+        return
+    area_map = _area_do_subtipo(mapa)
+
+    # ---- resumo rápido no topo ----
+    abertas = r.entre(r.abertas(df_f), "data_conclusao", ini, fim)
+    pend_an = r.pendencias_analise(df_f)
+    concl = r.entre(r.cumpridas(df_f), "data_conclusao", ini, fim)
+    k = st.columns(3)
+    with k[0]:
+        t.kpi("Pastas Abertas (mês)", t.fmt(len(abertas)), "cumpridas no mês", AZUL, "📁")
+    with k[1]:
+        t.kpi("Pendências de Análise", t.fmt(len(pend_an)), "em aberto", AMBAR, "⚠️")
+    with k[2]:
+        t.kpi("Concluídas (mês)", t.fmt(len(concl)), "todas as etapas", VERDE, "✅")
+
+    _diagnostico(df_f, mapa)
+
+    # ---- abas por grupo ----
+    abas = st.tabs([g[0] for g in GRUPOS])
+    for aba, (_, idxs) in zip(abas, GRUPOS):
+        with aba:
+            for i in idxs:
+                spec = SECOES[i]
+                try:
+                    _render_secao(i + 1, spec, df_f, mapa, area_map, ini, fim, hoje)
+                except Exception as e:
+                    st.error(f"Seção {i + 1} ({spec['titulo']}) falhou.")
+                    st.exception(e)
