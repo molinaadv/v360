@@ -111,6 +111,20 @@ def carregar_tudo():
     return tasks, metas, colabs
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def carregar_compromissos():
+    """Audiências/perícias JUD. View pequena → select *; remove campos sensíveis.
+    Retorna DataFrame vazio se a view não existir/der erro."""
+    try:
+        df = carregar_view("vw_compromissos_completa")
+    except Exception:
+        return pd.DataFrame()
+    if df.empty:
+        return df
+    sens = {"notes", "description", "notas", "descricao", "observacao", "observacoes"}
+    return df.drop(columns=[c for c in df.columns if c.lower() in sens], errors="ignore")
+
+
 # ---------------------------------------------------------------------
 # FUSO — America/Manaus  (seção 3 da base de conhecimento)
 # ---------------------------------------------------------------------

@@ -24,6 +24,7 @@ import pagina_metas
 import pagina_mapa
 import pagina_performance
 import pagina_comparativo
+import pagina_audiencias
 import pagina_tv
 import pagina_usuarios
 
@@ -62,10 +63,17 @@ if df_tasks is None or df_tasks.empty:
     st.warning("Nenhuma tarefa encontrada nas views do Supabase.")
     st.stop()
 
+# compromissos (audiências/perícias JUD) — best-effort, não derruba o app
+try:
+    df_comp = data.carregar_compromissos()
+except Exception:
+    df_comp = pd.DataFrame()
+
 # recorte por unidade do usuário (master = tudo)
 df_tasks = auth.aplicar_recorte(df_tasks)
 df_metas = auth.aplicar_recorte(df_metas)
 df_colabs = auth.aplicar_recorte(df_colabs)
+df_comp = auth.aplicar_recorte(df_comp)
 
 
 # =====================================================================
@@ -84,6 +92,7 @@ PAGINAS = [
     ("🗺️  Mapa",          "Mapa"),
     ("👥  Performance",   "Performance"),
     ("🔀  Comparativo",   "Comparativo"),
+    ("⚖️  Audiências e Perícias", "Audiencias"),
     ("📺  TV Operacional", "TV"),
 ]
 
@@ -127,6 +136,7 @@ pagina = st.session_state["pagina"]
 # =====================================================================
 df_f = df_tasks
 df_metas_f = df_metas
+df_comp_f = df_comp
 ano_filtro = data.hoje().year
 mes_filtro = data.hoje().month
 
@@ -159,6 +169,10 @@ if pagina != "TV":
     if resp_filtro != "Todos":
         df_f = df_f[df_f["usuario_executor"] == resp_filtro]
 
+    df_comp_f = df_comp
+    if unidade_filtro != "Todos" and not df_comp.empty and "unidade_nome" in df_comp.columns:
+        df_comp_f = df_comp[df_comp["unidade_nome"] == unidade_filtro]
+
     mes_ref = date(ano_filtro, mes_filtro, 1)
     if not df_metas.empty and "mes_referencia" in df_metas.columns:
         # competência é data de calendário → parse naive, sem converter fuso
@@ -184,6 +198,8 @@ try:
         pagina_performance.render(df_f, df_metas_f, ano_filtro, mes_filtro)
     elif pagina == "Comparativo":
         pagina_comparativo.render(df_f, df_metas_f, ano_filtro, mes_filtro)
+    elif pagina == "Audiencias":
+        pagina_audiencias.render(df_f, df_comp_f, ano_filtro, mes_filtro)
     elif pagina == "TV":
         pagina_tv.render(df_tasks, df_colabs, df_metas)
     elif pagina == "Usuarios":
