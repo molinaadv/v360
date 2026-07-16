@@ -114,6 +114,74 @@ def carregar_tudo():
     return tasks, metas, colabs
 
 
+# ---------------------------------------------------------------------
+# CAPTAÇÃO / CLIENTES  (sistema v360 Clientes → tabela captacao_leads)
+# ---------------------------------------------------------------------
+# Pode estar no MESMO projeto Supabase do Relatório, ou em outro. Por isso
+# o cliente tenta primeiro credenciais próprias (CAPTACAO_SUPABASE_URL /
+# CAPTACAO_SUPABASE_KEY) e, se não existirem, cai nas do Relatório.
+# Nunca traz colunas sensíveis (cpf, telefone, nome do cliente).
+CAPTACAO_COLS = [
+    "id", "status_lead", "captador_nome", "bairro", "tipo_beneficio",
+    "local_captacao", "motivo_perda", "data_captacao", "unidade", "cidade",
+]
+_CAPTACAO_SENS = {"cpf", "telefone", "nome_cliente", "email", "rg", "nb",
+                  "notes", "observacao", "observacoes"}
+
+
+@st.cache_resource
+def _get_supabase_captacao():
+    def s(*chaves, padrao=""):
+        for k in chaves:
+            v = st.secrets.get(k, "")
+            if v:
+                return v
+        return padrao
+    url = s("CAPTACAO_SUPABASE_URL", "SUPABASE_URL")
+    key = s("CAPTACAO_SUPABASE_KEY", "CAPTACAO_SUPABASE_ANON_KEY",
+            "SUPABASE_KEY", "SUPABASE_ANON_KEY")
+    return create_client(url, key)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def carregar_leads() -> pd.DataFrame:
+    """Leads de captação (tabela captacao_leads). Vazio se a tabela não existir.
+    data_captacao é data de calendário → parse naive (sem converter fuso)."""
+    try:
+        sb = _get_supabase_captacao()
+        sel = ",".join(CAPTACAO_COLS)
+        registros, inicio, lote = [], 0, 1000
+        while True:
+            resp = (sb.table("captacao_leads").select(sel)
+                    .order("data_captacao", desc=True)
+                    .range(inicio, inicio + lote - 1).execute())
+            dados = resp.data or []
+            if not dados:
+                break
+            registros.extend(dados)
+            if len(dados) < lote:
+                break
+            inicio += lote
+    except Exception:
+        # tenta com select("*") caso alguma coluna do allowlist não exista
+        try:
+            sb = _get_supabase_captacao()
+            resp = (sb.table("captacao_leads").select("*")
+                    .order("data_captacao", desc=True).execute())
+            registros = resp.data or []
+        except Exception:
+            return pd.DataFrame()
+    df = pd.DataFrame(registros)
+    if df.empty:
+        return df
+    # remove qualquer coluna sensível que tenha vindo do select("*")
+    df = df.drop(columns=[c for c in df.columns if c.lower() in _CAPTACAO_SENS],
+                 errors="ignore")
+    if "data_captacao" in df.columns:
+        df["data_captacao"] = pd.to_datetime(df["data_captacao"], errors="coerce")
+    return df
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def carregar_compromissos():
     """Audiências/perícias JUD. View pequena → select *; remove campos sensíveis.
