@@ -70,34 +70,3 @@ def render(df_tasks, df_colabs=None, df_metas=None):
             colp[0].markdown(
                 _card_link(href, u_pad, "Painel padrão · todas as telas", "🖥️"),
                 unsafe_allow_html=True)
-
-    # ---- 3) Painel Operacional ADM por unidade ----
-    if tvop is None:
-        return
-    t.secao("Painel Operacional ADM (por unidade)")
-    if "unidade_nome" not in df_tasks.columns:
-        return
-    unidades = sorted(df_tasks["unidade_nome"].dropna().astype(str).unique())
-    if not unidades:
-        return
-    unidade = st.selectbox("Unidade", unidades)
-    setores = tvop.UNIDADE_SETORES.get(unidade, list(tvop.SETORES.keys()))
-
-    cols = st.columns(3)
-    for i, chave in enumerate(setores):
-        cfg = tvop.SETORES.get(chave)
-        if not cfg:
-            continue
-        try:
-            dados = tvop.montar_dados(df_tasks, df_colabs, df_metas, unidade, chave)
-            areas = dados["setor"]["areas"]
-            tot_pend = sum(a["atrasados"] + a["pendDia"] + a["pendFut"] for a in areas)
-            tot_cump = sum(a["cumpridoMes"] for a in areas)
-        except Exception:
-            tot_pend = tot_cump = 0
-        extra = (f'<div style="margin-top:10px;color:{t.CORES["muted"]};font-size:12.5px;">'
-                 f'Pendências: <b style="color:{t.ABERTO};">{tot_pend}</b> · '
-                 f'Cumpridos/mês: <b style="color:{t.CUMPRIDO};">{tot_cump}</b></div>')
-        href = f"?setor={chave}&unidade={unidade}"
-        cols[i % 3].markdown(_card_link(href, cfg["titulo"], f"Unidade: {unidade}", "🖥️", extra),
-                             unsafe_allow_html=True)
