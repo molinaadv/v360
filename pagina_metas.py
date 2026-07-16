@@ -37,9 +37,10 @@ def render(df_f, df_metas_f, ano: int, mes: int):
 
     rk["meta_total"] = rk["meta_abertas"] + rk["meta_enviadas"]
     rk["real_total"] = rk["abertas"] + rk["enviadas"]
-    rk["pct_ab"] = (rk["abertas"] / rk["meta_abertas"].replace(0, pd.NA) * 100).fillna(0)
-    rk["pct_en"] = (rk["enviadas"] / rk["meta_enviadas"].replace(0, pd.NA) * 100).fillna(0)
-    rk["pct_geral"] = (rk["real_total"] / rk["meta_total"].replace(0, pd.NA) * 100).fillna(0)
+    # só divide por meta > 0 (meta 0 ou negativa na base gerava % negativo absurdo)
+    rk["pct_ab"] = (rk["abertas"] / rk["meta_abertas"].where(rk["meta_abertas"] > 0) * 100).clip(lower=0).fillna(0)
+    rk["pct_en"] = (rk["enviadas"] / rk["meta_enviadas"].where(rk["meta_enviadas"] > 0) * 100).clip(lower=0).fillna(0)
+    rk["pct_geral"] = (rk["real_total"] / rk["meta_total"].where(rk["meta_total"] > 0) * 100).clip(lower=0).fillna(0)
 
     def faixa(row):
         if row["pct_ab"] >= 100 and row["pct_en"] >= 100:
@@ -81,17 +82,24 @@ def render(df_f, df_metas_f, ano: int, mes: int):
     fig.update_yaxes(title="% da meta")
     st.plotly_chart(t.layout(fig, 460), use_container_width=True)
 
+    # ordena por status (batida/perto primeiro) e depois por volume → as que
+    # estão perto de bater ficam à esquerda, como na versão antiga
+    ordem_status = {"Meta batida": 0, "Perto da meta": 1, "Longe da meta": 2}
+    rk["_ord"] = rk["status_meta"].map(ordem_status)
+
     c1, c2 = st.columns(2)
     with c1:
         t.secao("Pastas Abertas")
-        f = px.bar(rk.sort_values("abertas", ascending=False), x="unidade", y="abertas",
-                   text="abertas", color="status_meta", color_discrete_map=MAPA_STATUS)
+        f = px.bar(rk.sort_values(["_ord", "abertas"], ascending=[True, False]),
+                   x="unidade", y="abertas", text="abertas",
+                   color="status_meta", color_discrete_map=MAPA_STATUS)
         f.update_traces(textposition="outside", cliponaxis=False, textfont_color=t.CORES["ink"])
         st.plotly_chart(t.layout(f, 420), use_container_width=True)
     with c2:
         t.secao("Pastas Enviadas")
-        f = px.bar(rk.sort_values("enviadas", ascending=False), x="unidade", y="enviadas",
-                   text="enviadas", color="status_meta", color_discrete_map=MAPA_STATUS)
+        f = px.bar(rk.sort_values(["_ord", "enviadas"], ascending=[True, False]),
+                   x="unidade", y="enviadas", text="enviadas",
+                   color="status_meta", color_discrete_map=MAPA_STATUS)
         f.update_traces(textposition="outside", cliponaxis=False, textfont_color=t.CORES["ink"])
         st.plotly_chart(t.layout(f, 420), use_container_width=True)
 
