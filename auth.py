@@ -8,13 +8,16 @@
 # Master vê tudo. Um gestor (ex.: Rodrigo) só vê as unidades da lista dele.
 # Exemplo de secrets em  .streamlit/secrets.toml.example
 # =====================================================================
+import json
+
 import streamlit as st
 
 import theme as t
+import usuarios_db
 
 
-def _usuarios() -> dict:
-    """Lê os usuários dos secrets. Retorna {chave: {email,senha,nome,role,unidades}}."""
+def _usuarios_secrets() -> dict:
+    """Usuários do Secrets (bootstrap, ex.: master). Senha em texto no Secrets."""
     try:
         u = st.secrets.get("usuarios")
     except Exception:
@@ -36,9 +39,17 @@ def _usuarios() -> dict:
 
 def _achar(email: str, senha: str):
     email = (email or "").strip().lower()
-    for _, u in _usuarios().items():
+    # 1) Secrets (senha em texto)
+    for u in _usuarios_secrets().values():
         if u["email"] == email and u["senha"] == senha:
             return u
+    # 2) Tabela Supabase (senha com hash)
+    h = usuarios_db.hash_senha(senha)
+    for reg in usuarios_db.listar():
+        if (str(reg.get("email", "")).strip().lower() == email
+                and reg.get("ativo", True) and reg.get("senha_hash") == h):
+            return {"email": email, "nome": reg.get("nome", email),
+                    "role": reg.get("role", "gestor"), "unidades": reg.get("unidades", "*")}
     return None
 
 
@@ -52,6 +63,11 @@ def unidades_permitidas():
     if not u:
         return None
     un = u.get("unidades", "*")
+    if isinstance(un, str) and un.strip().startswith("["):
+        try:
+            un = json.loads(un)
+        except Exception:
+            pass
     if un in ("*", None, "", ["*"]):
         return None
     return [str(x) for x in un] if isinstance(un, (list, tuple)) else [str(un)]

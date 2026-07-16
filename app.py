@@ -25,6 +25,7 @@ import pagina_mapa
 import pagina_performance
 import pagina_comparativo
 import pagina_tv
+import pagina_usuarios
 
 try:
     import painel_tv_operacional as tvop
@@ -85,6 +86,11 @@ PAGINAS = [
     ("🔀  Comparativo",   "Comparativo"),
     ("📺  TV Operacional", "TV"),
 ]
+
+# menu de usuários só para o master
+_u = auth.usuario_atual()
+if _u and _u.get("role") == "master":
+    PAGINAS.append(("🔐  Usuários", "Usuarios"))
 
 if "pagina" not in st.session_state:
     st.session_state["pagina"] = "Executivo"
@@ -180,6 +186,8 @@ try:
         pagina_comparativo.render(df_f, df_metas_f, ano_filtro, mes_filtro)
     elif pagina == "TV":
         pagina_tv.render(df_tasks, df_colabs, df_metas)
+    elif pagina == "Usuarios":
+        pagina_usuarios.render(df_tasks)
 except Exception as e:
     st.error(f"A página '{pagina}' falhou ao renderizar.")
     st.exception(e)
