@@ -34,8 +34,10 @@ def _card_link(href, nome, desc, ic, extra_html=""):
     """Card inteiro clicável (é o próprio botão 'Abrir na TV'). Abre em nova aba.
     HTML numa linha só de propósito: indentação faz o Streamlit tratar como
     bloco de código e vazar '</div></a>' na tela."""
-    titulo = f'<div style="font-weight:800;color:{t.CORES["ink"]};font-size:15px;">{ic} {nome}</div>'
-    sub = f'<div style="color:{t.CORES["muted"]};font-size:12.5px;margin-top:6px;">{desc}</div>'
+    titulo = (f'<div style="font-weight:900;color:{t.CORES["ink"]};'
+              f'font-size:clamp(18px,1.5vw,22px);text-align:center;">{ic} {nome}</div>')
+    sub = (f'<div style="color:{t.CORES["muted"]};font-size:13px;margin-top:6px;'
+           f'text-align:center;">{desc}</div>')
     btn = '<div class="tvbtn">▶&nbsp; Abrir na TV</div>'
     return (f'<a href="{href}" target="_blank" class="tvcard-link">'
             f'<div class="tvcard">{titulo}{sub}{extra_html}{btn}</div></a>')

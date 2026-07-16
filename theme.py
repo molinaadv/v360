@@ -151,10 +151,10 @@ def injetar_css():
             transition: transform .15s, border-color .15s, box-shadow .15s; }}
         .tvcard:hover {{ transform: translateY(-2px); border-color: var(--accent);
             box-shadow: 0 14px 36px rgba(91,140,255,.20); }}
-        .tvbtn {{ margin-top: 14px; text-align: center; background: var(--panel2);
-            border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
-            color: var(--ink); font-weight: 800; font-size: 13.5px; }}
-        .tvcard:hover .tvbtn {{ background: rgba(91,140,255,.18); border-color: var(--accent); color: #fff; }}
+        .tvbtn {{ margin-top: 16px; text-align: center; background: #ffffff;
+            border: 1px solid #ffffff; border-radius: 12px; padding: 11px 12px;
+            color: #0b1220; font-weight: 800; font-size: 14px; }}
+        .tvcard:hover .tvbtn {{ background: #e9f0ff; border-color: #e9f0ff; color: #0b1220; }}
 
         /* -------- NOTAS / ALERTAS -------- */
         .nota {{ border-radius: 14px; padding: 12px 16px; margin: 6px 0; font-size: 14px;
