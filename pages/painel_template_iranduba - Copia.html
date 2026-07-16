@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel TV Itacoatiara · V360 Molina</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PAINEL OPERACIONAL V360 — Molina Advogados
+   HTML único, gira sozinho entre 3 telas, otimizado p/ TV.
+   Ranking e totais são CALCULADOS a partir dos cards.
+   Setup: F = tela cheia · Espaço = pausa · ← → trocar · 1/2/3 ir
+   ============================================================ */
+:root{
+  --bg:#060b14; --bg2:#0a1322;
+  --card:#0e1726; --card2:#0c1320;
+  --line:#1c2c44; --line2:#16233a;
+  --ink:#eef3fb; --muted:#7d8eaa; --muted2:#56657f;
+
+  --red:#ff4d5e;    --red-g:rgba(255,77,94,.55);
+  --orange:#ff9f1c; --orange-g:rgba(255,159,28,.5);
+  --blue:#3aa0ff;   --blue-g:rgba(58,160,255,.5);
+  --purple:#9b6bff; --purple-g:rgba(155,107,255,.5);
+  --green:#2ec16b;  --green-g:rgba(46,193,107,.5);
+  --cyan:#2fcfe6;   --cyan-g:rgba(47,207,230,.55);
+  --gold:#ffcb52;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:
+    radial-gradient(120% 80% at 18% -10%, #0e1b30 0%, transparent 55%),
+    radial-gradient(120% 90% at 100% 0%, #0c1626 0%, transparent 50%),
+    var(--bg);
+  color:var(--ink);
+  font-family:"Inter",system-ui,sans-serif;
+  overflow:hidden;height:100vh;-webkit-font-smoothing:antialiased;
+}
+.num{font-family:"Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums;line-height:.9}
+svg{display:block}
+
+/* ---------- moldura ---------- */
+.frame{display:flex;flex-direction:column;height:100vh;padding:clamp(14px,1.5vw,30px) clamp(18px,1.8vw,38px)}
+
+.topbar{display:flex;align-items:center;gap:24px;flex:0 0 auto;
+  padding-bottom:clamp(10px,1vw,18px);border-bottom:1px solid var(--line2)}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.brand .bar{width:6px;height:clamp(28px,2.6vw,46px);border-radius:99px;
+  background:linear-gradient(180deg,var(--cyan),var(--blue));box-shadow:0 0 18px var(--cyan-g)}
+.brand .name{font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  font-size:clamp(24px,2.4vw,42px);letter-spacing:.5px;white-space:nowrap}
+.brand .name b{color:var(--cyan)}
+.ptitle{flex:1;text-align:center;font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  font-size:clamp(26px,3vw,56px);letter-spacing:1px;text-transform:uppercase;
+  text-shadow:0 0 26px rgba(58,160,255,.25)}
+.meta-top{display:flex;align-items:center;gap:clamp(16px,1.8vw,34px);flex:0 0 auto}
+.mt{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.mt .ico{color:var(--cyan);opacity:.9}
+.mt .k{font-size:clamp(11px,.78vw,14px);color:var(--muted);font-weight:600;line-height:1.25}
+.mt .k b{color:var(--ink);font-weight:700}
+.mt .big{font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  font-size:clamp(22px,2.2vw,40px)}
+.mt.clock .big{color:var(--ink)}
+.mt.reinicia .big{color:var(--cyan);text-shadow:0 0 16px var(--cyan-g)}
+
+/* ---------- palco ---------- */
+.stage{position:relative;flex:1 1 auto;margin-top:clamp(12px,1.3vw,24px);min-height:0}
+.screen{position:absolute;inset:0;opacity:0;visibility:hidden;transform:translateY(16px);
+  transition:opacity .6s ease,transform .6s ease,visibility .6s;
+  display:flex;flex-direction:column;gap:clamp(12px,1.2vw,22px)}
+.screen.active{opacity:1;visibility:visible;transform:none}
+
+/* ---------- TELA 1 · SETOR ---------- */
+.setor-top{flex:1 1 auto;display:grid;gap:clamp(7px,.7vw,14px);min-height:0;overflow:hidden;
+  grid-template-columns:repeat(6,1fr)}
+.card{background:linear-gradient(180deg,var(--card),var(--card2));
+  border:1px solid var(--line);border-radius:16px;padding:clamp(8px,.7vw,14px);
+  display:flex;flex-direction:column;min-height:0;overflow:hidden;
+  box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 18px 40px -28px #000}
+.card-head{display:flex;align-items:center;gap:8px;margin-bottom:clamp(5px,.55vw,10px);
+  padding-bottom:clamp(5px,.5vw,9px);border-bottom:1px solid var(--line2)}
+.card-head .emj{font-size:clamp(20px,1.7vw,30px);line-height:1;filter:drop-shadow(0 0 10px rgba(58,160,255,.4))}
+.card-head .ttl{font-size:clamp(13px,1.05vw,19px);font-weight:800;letter-spacing:.02em;line-height:1.1}
+/* tela 2 (pendências por unidade): nome da unidade bem maior */
+section[data-screen="1"] .card-head .ttl{font-size:clamp(22px,2.2vw,44px)}
+section[data-screen="1"] .card-head .emj{font-size:clamp(24px,2vw,40px)}
+
+.mrows{display:flex;flex-direction:column;gap:clamp(3px,.35vw,7px);flex:1;justify-content:space-between}
+.mrow{display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.05);
+  border-radius:10px;padding:clamp(4px,.42vw,8px) clamp(8px,.7vw,13px)}
+.mrow .ic{width:clamp(18px,1.4vw,28px);height:clamp(18px,1.4vw,28px);flex:0 0 auto}
+.mrow .lab{flex:1;font-size:clamp(12px,.92vw,17px);font-weight:700;
+  letter-spacing:.02em;text-transform:uppercase;color:#dbe4f0}
+.mrow .val{font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  font-size:clamp(24px,2.1vw,42px);line-height:1}
+.c-red{color:var(--red)}    .v-red{color:var(--red)}
+.c-orange{color:var(--orange)} .v-orange{color:var(--orange)}
+.c-blue{color:var(--blue)}  .v-blue{color:var(--blue)}
+.c-purple{color:var(--purple)} .v-purple{color:var(--purple)}
+.c-green{color:var(--green)} .v-green{color:var(--green)}
+.c-cyan{color:var(--cyan)}  .v-cyan{color:var(--cyan)}
+
+/* card ranking */
+.rank-card .rk{display:flex;flex-direction:column;gap:clamp(6px,.7vw,12px);flex:1;justify-content:space-between}
+.rk-item{padding-bottom:clamp(6px,.7vw,12px);border-bottom:1px solid var(--line2)}
+.rk-item:last-of-type{border-bottom:none}
+.rk-head{display:flex;align-items:baseline;gap:9px;margin-bottom:3px}
+.rk-head .pos{font-family:"Barlow Condensed",sans-serif;font-weight:700;color:var(--gold);
+  font-size:clamp(16px,1.4vw,26px);text-shadow:0 0 12px rgba(255,203,82,.45)}
+.rk-head .nm{font-size:clamp(12px,1vw,18px);font-weight:800;letter-spacing:.01em}
+.rk-stats{display:flex;gap:clamp(12px,1.3vw,24px);padding-left:2px}
+.rk-stats .s{font-size:clamp(10px,.72vw,13px);color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.rk-stats .s b{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:1.5em;margin-left:5px}
+.rk-crit{margin-top:6px;font-size:clamp(9px,.7vw,12px);color:var(--muted2);font-style:italic}
+
+/* totais inferiores */
+.tot-row{flex:0 0 auto;display:grid;grid-template-columns:repeat(6,1fr);gap:clamp(10px,1vw,20px)}
+.tot{background:linear-gradient(180deg,var(--card),var(--card2));
+  border:1px solid var(--line);border-radius:16px;
+  padding:clamp(12px,1.1vw,22px) clamp(14px,1.2vw,24px);
+  display:flex;flex-direction:column;gap:clamp(6px,.6vw,12px)}
+.tot .th{display:flex;align-items:center;gap:9px}
+.tot .th .ic{width:clamp(16px,1.2vw,22px);height:clamp(16px,1.2vw,22px);filter:drop-shadow(0 0 6px currentColor)}
+.tot .th .l{font-size:clamp(10px,.78vw,14px);font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#c4d0e2}
+.tot .n{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(36px,3.6vw,70px)}
+
+/* ---------- TELA 2 · HALL DOS CAMPEÕES ---------- */
+.scr-head{flex:0 0 auto;display:flex;align-items:baseline;gap:16px}
+.scr-head .eb{font-size:clamp(12px,.95vw,17px);color:var(--cyan);font-weight:700;
+  text-transform:uppercase;letter-spacing:.28em}
+.hall{flex:1;display:grid;grid-template-columns:1.1fr .9fr;gap:clamp(18px,2vw,42px);min-height:0}
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:clamp(14px,1.6vw,32px)}
+.pod{display:flex;flex-direction:column;align-items:center;gap:12px;flex:1;max-width:230px}
+.pod .av{width:clamp(58px,5.2vw,98px);height:clamp(58px,5.2vw,98px);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-family:"Barlow Condensed",sans-serif;
+  font-weight:700;font-size:clamp(24px,2.3vw,42px);color:#06101e}
+.pod.p1 .av{background:linear-gradient(160deg,#ffe08a,var(--gold));box-shadow:0 0 30px rgba(255,203,82,.5)}
+.pod.p2 .av{background:linear-gradient(160deg,#e6eef7,#aebccd)}
+.pod.p3 .av{background:linear-gradient(160deg,#e3a877,#c98a52)}
+.pod .nm{font-size:clamp(13px,1.05vw,21px);font-weight:700;text-align:center}
+.pod .sc{font-family:"Barlow Condensed",sans-serif;font-weight:700;color:var(--gold);
+  font-size:clamp(24px,2.2vw,42px);text-shadow:0 0 16px rgba(255,203,82,.4)}
+.pod .sc small{display:block;font-size:.38em;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-top:-2px}
+.blk{width:100%;border-radius:14px 14px 0 0;display:flex;justify-content:center;padding-top:12px;
+  font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(34px,3.4vw,64px);color:rgba(6,16,30,.45)}
+.pod.p1 .blk{height:clamp(130px,16vh,210px);background:linear-gradient(180deg,var(--gold),#c79a32)}
+.pod.p2 .blk{height:clamp(96px,12vh,160px);background:linear-gradient(180deg,#b9c7d6,#8190a3)}
+.pod.p3 .blk{height:clamp(74px,9vh,120px);background:linear-gradient(180deg,#c98a52,#9c6a3e)}
+.ranklist{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);
+  border-radius:16px;padding:clamp(12px,1.2vw,24px);display:flex;flex-direction:column;justify-content:space-evenly}
+.rrow{display:flex;align-items:center;gap:clamp(12px,1.2vw,20px);padding:clamp(7px,.7vw,12px) 0;
+  border-bottom:1px solid var(--line2)}
+.rrow:last-child{border-bottom:none}
+.rrow .pos{font-family:"Barlow Condensed",sans-serif;font-weight:700;color:var(--muted);
+  font-size:clamp(20px,1.7vw,34px);width:1.5em;text-align:center}
+.rrow .ini{width:clamp(38px,3vw,54px);height:clamp(38px,3vw,54px);border-radius:50%;
+  background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:clamp(13px,1vw,19px);flex:0 0 auto}
+.rrow .who{flex:1;font-size:clamp(14px,1.1vw,22px);font-weight:700}
+.rrow .who small{display:block;color:var(--muted);font-weight:500;font-size:.66em}
+.rrow .pts{font-family:"Barlow Condensed",sans-serif;font-weight:700;color:var(--cyan);
+  font-size:clamp(22px,1.9vw,36px)}
+
+/* ---------- TELA 3 · META ---------- */
+.meta-wrap{flex:1;display:grid;grid-template-columns:.95fr 1.05fr;gap:clamp(24px,2.6vw,54px);align-items:center;min-height:0}
+.gauge{position:relative;display:flex;align-items:center;justify-content:center}
+.gauge svg{width:clamp(240px,24vw,420px);height:clamp(240px,24vw,420px);transform:rotate(-90deg)}
+.gauge .track{fill:none;stroke:rgba(255,255,255,.07);stroke-width:24}
+.gauge .prog{fill:none;stroke:url(#gg);stroke-width:24;stroke-linecap:round;
+  filter:drop-shadow(0 0 10px var(--green-g));transition:stroke-dashoffset 1.4s cubic-bezier(.2,.8,.2,1)}
+.gauge .center{position:absolute;text-align:center}
+.gauge .center .pct{font-family:"Barlow Condensed",sans-serif;font-weight:700;color:var(--green);
+  font-size:clamp(64px,7.5vw,138px);text-shadow:0 0 26px var(--green-g)}
+.gauge .center .lab{font-size:clamp(12px,1vw,18px);color:var(--muted);text-transform:uppercase;letter-spacing:.22em;font-weight:600}
+.meta-side{display:flex;flex-direction:column;gap:clamp(14px,1.5vw,28px)}
+.unidade-name{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(32px,3.2vw,60px);line-height:1}
+.kpi-row{display:flex;gap:clamp(18px,2vw,40px)}
+.kpi .v{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(38px,3.8vw,72px)}
+.kpi .v.real{color:var(--green);text-shadow:0 0 18px var(--green-g)}
+.kpi .v.falta{color:var(--red)}
+.kpi .l{font-size:clamp(11px,.92vw,17px);color:var(--muted);text-transform:uppercase;letter-spacing:.16em;font-weight:600;margin-top:4px}
+.others{display:flex;flex-direction:column;gap:clamp(11px,1.1vw,18px)}
+.ubar .h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.ubar .h .n{font-size:clamp(14px,1.1vw,22px);font-weight:700}
+.ubar .h .p{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(18px,1.6vw,30px)}
+.ubar .t{height:clamp(12px,1.2vw,20px);border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden}
+.ubar .t>i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--cyan),var(--blue))}
+.ubar.ok .t>i{background:linear-gradient(90deg,var(--green),#6fe0a6)}
+
+/* ---------- rodapé ---------- */
+.footer{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;
+  margin-top:clamp(10px,1vw,18px);padding-top:clamp(8px,.9vw,16px);border-top:1px solid var(--line2)}
+.foot-info{display:flex;gap:clamp(20px,2.4vw,48px);flex-wrap:wrap}
+.fi{display:flex;align-items:center;gap:8px;font-size:clamp(11px,.85vw,15px);color:var(--muted);font-weight:600}
+.fi b{color:var(--ink);font-weight:700}.fi .hi{color:var(--cyan);font-weight:700}.fi .ico{color:var(--cyan);opacity:.85}
+.dots{display:flex;gap:12px;align-items:center}
+.dp{position:relative;width:clamp(40px,3.4vw,70px);height:7px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;cursor:pointer}
+.dp>i{position:absolute;inset:0;width:0;border-radius:99px;background:var(--muted)}
+.dp.active{background:rgba(47,207,230,.22)}.dp.active>i{background:var(--cyan)}
+
+@media (prefers-reduced-motion:reduce){.screen{transition:opacity .25s}*{animation:none!important}}
+
+/* ---------- TELA 3 · CAMPEÕES POR SUBTIPO ---------- */
+.campsub{flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:minmax(0,1fr);gap:clamp(10px,1vw,20px);min-height:0;overflow:hidden}
+.cs-card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:16px;padding:clamp(12px,1.1vw,20px);display:flex;flex-direction:column;overflow:hidden}
+.cs-st{font-size:clamp(13px,1.1vw,21px);font-weight:800;color:#dbe4f0;text-transform:uppercase;letter-spacing:.02em;margin-bottom:clamp(6px,.8vw,14px);padding-bottom:clamp(5px,.6vw,10px);border-bottom:1px solid var(--line2)}
+.cs-two{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:clamp(8px,.9vw,16px);min-height:0}
+.cs-p{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:clamp(8px,.9vw,16px);display:flex;flex-direction:column;justify-content:center;gap:2px}
+.cs-lab{font-size:clamp(10px,.78vw,14px);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.cs-nm{font-size:clamp(14px,1.2vw,22px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-q{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(28px,2.6vw,50px);line-height:1}
+.semana .cs-q{color:var(--cyan)} .mes .cs-q{color:var(--green)}
+
+/* ---------- TELA 4 · META (velocímetros) ---------- */
+.metas-grid{flex:1;display:grid;grid-template-columns:1fr;grid-auto-rows:1fr;
+  gap:clamp(12px,1.3vw,24px);min-height:0}
+.uni-block{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);
+  border-radius:18px;padding:clamp(10px,1vw,20px) clamp(20px,2vw,44px);
+  display:grid;grid-template-columns:auto 1fr 1fr;align-items:center;justify-items:center;
+  gap:clamp(18px,2.4vw,56px);min-height:0}
+.uni-name{justify-self:start;display:flex;flex-direction:column;gap:8px;
+  padding-right:clamp(14px,1.8vw,36px);border-right:1px solid var(--line2)}
+.uni-name .u{font-family:"Barlow Condensed",sans-serif;font-weight:700;
+  font-size:clamp(40px,4.6vw,88px);line-height:.95;letter-spacing:.5px}
+.uni-name .tag{font-size:clamp(11px,.9vw,17px);color:var(--muted);text-transform:uppercase;
+  letter-spacing:.18em;font-weight:600}
+.gwrap{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:clamp(6px,.8vw,16px);min-width:0;min-height:0}
+.gg-svg{position:relative;flex:0 0 auto}
+.gg-svg svg{width:clamp(320px,27vw,560px);height:clamp(320px,27vw,560px);transform:rotate(135deg)}
+.gg-track{fill:none;stroke:rgba(255,255,255,.07);stroke-width:16}
+.gg-prog{fill:none;stroke-width:16;stroke-linecap:round;
+  transition:stroke-dashoffset 1.3s cubic-bezier(.2,.8,.2,1),stroke .6s ease}
+.gg-center{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center}
+.gg-center .pct{font-family:"Barlow Condensed",sans-serif;font-weight:700;line-height:.9;
+  font-size:clamp(74px,7.4vw,158px)}
+.gg-center .plab{font-size:clamp(10px,.82vw,15px);color:var(--muted);text-transform:uppercase;
+  letter-spacing:.16em;font-weight:600;margin-top:4px}
+.gg-cat{font-size:clamp(16px,1.5vw,30px);font-weight:800;text-transform:uppercase;
+  letter-spacing:.03em;color:#dbe4f0;line-height:1.15;flex:0 0 auto;text-align:center}
+.g-red{color:var(--red)}   .g-orange{color:var(--orange)}  .g-green{color:var(--green)}
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     >>> DADOS DO PAINEL <<<  (troque os números OU ligue no Supabase no fim)
+     Ranking e totais são calculados automaticamente a partir das áreas.
+     ====================================================================== -->
+<script>
+/*__DADOS__*/
+</script>
+<!-- ===================== fim dos dados ===================== -->
+
+<style>
+/* ===== CALENDÁRIO (telas 2 e 3) ===== */
+.calweek{display:flex;gap:10px;height:100%;padding:16px 26px 10px;box-sizing:border-box}
+.cw-col{flex:1;display:flex;flex-direction:column;background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;min-width:0}
+.cw-col.today{border-color:#4aa3ff;box-shadow:inset 0 0 0 1px #4aa3ff}
+.cw-head{padding:9px 6px;text-align:center;background:rgba(255,255,255,.05)}
+.cw-dow{font-size:clamp(12px,.95vw,17px);letter-spacing:.09em;color:#9fb2c9;text-transform:uppercase}
+.cw-date{font-size:clamp(20px,1.7vw,34px);font-weight:800;color:#eaf2ff;line-height:1.05}
+.cw-col.today .cw-date{color:#4aa3ff}
+.cw-body{flex:1;padding:8px 7px;display:flex;flex-direction:column;gap:7px;overflow:hidden}
+.cw-empty{margin:auto;color:#54637a;font-size:14px}
+.chip{border-radius:10px;padding:7px 9px;background:rgba(255,255,255,.05);
+  border-left:5px solid var(--c,#4aa3ff);line-height:1.15}
+.chip .h{font-weight:800;font-size:clamp(14px,1.05vw,20px);color:#eaf2ff}
+.chip .t{font-size:clamp(12px,.92vw,16px);color:#cdd9ea;font-weight:600}
+.chip .cli{font-size:clamp(11px,.82vw,15px);color:#f0d67a;font-weight:700;line-height:1.1;margin-top:1px}
+.chip .u{font-size:clamp(11px,.78vw,14px);color:#8ea3bd}
+.chip.feito{opacity:.5}
+.chip.feito .h{text-decoration:line-through}
+.chip.atrasado{box-shadow:inset 0 0 0 2px #ff5a6a}
+.calmonth{display:flex;flex-direction:column;height:100%;padding:10px 26px 10px;box-sizing:border-box}
+.cm-dows{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:8px}
+.cm-dow{text-align:center;color:#9fb2c9;font-size:clamp(12px,.88vw,16px);letter-spacing:.08em;text-transform:uppercase}
+.cm-grid{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;gap:8px;min-height:0}
+.cm-cell{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;
+  padding:6px 7px;display:flex;flex-direction:column;gap:4px;overflow:hidden;min-height:0}
+.cm-cell.out{opacity:.32}
+.cm-cell.today{border-color:#4aa3ff;box-shadow:inset 0 0 0 1px #4aa3ff}
+.cm-n{font-size:clamp(13px,.95vw,18px);font-weight:800;color:#eaf2ff}
+.cm-cell.today .cm-n{color:#4aa3ff}
+.cm-chip{font-size:clamp(10px,.7vw,13px);color:#dbe6f5;background:rgba(255,255,255,.06);
+  border-left:4px solid var(--c,#4aa3ff);border-radius:6px;padding:2px 6px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cm-chip.feito{opacity:.5;text-decoration:line-through}
+.cm-more{font-size:clamp(10px,.68vw,12px);color:#7f93ac}
+/* ===== TELA 4 · REALIZAÇÃO (barras) ===== */
+.metas-grid{display:flex !important;flex-direction:column;
+  padding:28px 46px;height:100%;box-sizing:border-box;
+  grid-template-columns:none !important;grid-auto-rows:auto !important}
+.mt-row{flex:1;display:grid;grid-template-columns:minmax(200px,1.1fr) 3fr auto;
+  align-items:center;gap:30px}
+.mt-uni{font-size:clamp(24px,2.1vw,46px);font-weight:800;color:#eaf2ff;line-height:1}
+.mt-barwrap{display:flex;flex-direction:column;gap:9px;min-width:0}
+.mt-bar{height:22px;border-radius:12px;background:rgba(255,255,255,.08);overflow:hidden}
+.mt-fill{height:100%;border-radius:12px;transition:width .6s ease}
+.mt-sub{font-size:clamp(13px,1vw,19px);color:#9fb2c9}
+.mt-pct{font-size:clamp(30px,3vw,62px);font-weight:800;min-width:140px;text-align:right}
+/* ===== TELA 5 · META PASTAS (barras) ===== */
+.metapastas{display:flex;flex-direction:column;padding:26px 46px;height:100%;
+  box-sizing:border-box}
+.mp-row{flex:1;display:grid;grid-template-columns:minmax(190px,1fr) 3.2fr;align-items:center;gap:28px}
+.mp-uni{font-size:clamp(22px,1.9vw,42px);font-weight:800;color:#eaf2ff;line-height:1}
+.mp-metrics{display:flex;flex-direction:column;gap:10px;min-width:0}
+.mp-metric{display:grid;grid-template-columns:130px 1fr auto;align-items:center;gap:18px}
+.mp-lab{font-size:clamp(13px,1vw,19px);color:#9fb2c9;text-transform:uppercase;letter-spacing:.05em}
+.mp-bar{height:18px;border-radius:10px;background:rgba(255,255,255,.08);overflow:hidden}
+.mp-fill{height:100%;border-radius:10px;transition:width .6s ease}
+.mp-val{font-size:clamp(16px,1.3vw,28px);font-weight:800;min-width:100px;text-align:right}
+/* ===== TELAS 5/6 · PENDÊNCIAS (destaque URGENTE) ===== */
+.card.urgente{border-color:rgba(255,77,94,.55);
+  box-shadow:0 0 0 1px rgba(255,77,94,.18) inset,0 18px 40px -28px #000}
+.card.urgente .card-head .ttl{color:var(--red)}
+/* ===== TELA 7 · PASTAS ABERTAS ===== */
+.pastas-grid{flex:1 1 auto;display:grid;gap:clamp(10px,1vw,18px);min-height:0}
+.pcard{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);
+  border-radius:18px;padding:clamp(12px,1.1vw,22px);display:flex;flex-direction:column;
+  min-height:0;overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 18px 40px -28px #000}
+.pcard .head{display:flex;align-items:center;gap:10px;margin-bottom:clamp(8px,.8vw,16px);
+  padding-bottom:clamp(7px,.6vw,12px);border-bottom:1px solid var(--line2)}
+.pcard .head .emj{font-size:clamp(24px,2vw,40px);filter:drop-shadow(0 0 10px rgba(47,207,230,.4))}
+.pcard .head .ttl{font-size:clamp(19px,1.9vw,38px);font-weight:800;line-height:1.05}
+.ptwo{flex:1;display:flex;flex-direction:column;gap:clamp(10px,1vw,18px)}
+.pcell{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  background:rgba(255,255,255,.022);border:1px solid rgba(255,255,255,.05);border-radius:14px}
+.pcell .l{font-size:clamp(12px,1vw,18px);color:var(--muted);text-transform:uppercase;letter-spacing:.2em;font-weight:700}
+.pcell .n{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(44px,5vw,100px);line-height:.9}
+.pcell.semana .n{color:var(--cyan)}
+.pcell.mes .n{color:var(--green)}
+.tot-row.pastas-tot{grid-template-columns:repeat(2,1fr)}
+/* ===== TELA 8 · META (velocímetros) ===== */
+.mg-grid{flex:1;display:flex;flex-direction:column;gap:clamp(12px,1.3vw,24px);min-height:0;padding:6px 0}
+.mg-grid .uni-block{flex:1}
+</style>
+<div class="frame">
+
+  <!-- topo -->
+  <div class="topbar">
+    <div class="brand">
+      <span class="bar"></span>
+      <span class="name">V360 <b>MOLINA</b></span>
+    </div>
+    <div class="ptitle" id="ptitle">PAINEL OPERACIONAL</div>
+    <div class="meta-top">
+      <div class="mt"><span class="ico" id="icoSync"></span>
+        <span class="k">Atualização automática<br><b id="cadencia">a cada 5 minutos</b></span></div>
+      <div class="mt clock"><span class="ico" id="icoClock"></span>
+        <span><span class="big num" id="clock">--:--:--</span><br><span class="k" id="dateTop">—</span></span></div>
+      <div class="mt reinicia"><span class="ico" id="icoTimer"></span>
+        <span class="k">Reinicia em:<br><span class="big num" id="reinicia">--:--</span></span></div>
+    </div>
+  </div>
+
+  <!-- palco -->
+  <div class="stage">
+
+    <!-- TELA 1 · SETOR -->
+    <section class="screen" data-screen="0">
+      <div class="setor-top" id="setorTop"></div>
+      <div class="tot-row" id="totRow"></div>
+    </section>
+    <!-- TELA 2 · AGENDA DA SEMANA -->
+    <section class="screen" data-screen="1">
+      <div class="calweek" id="calWeek"></div>
+    </section>
+    <!-- TELA 3 · AGENDA DO MÊS -->
+    <section class="screen" data-screen="2">
+      <div class="calmonth" id="calMonth"></div>
+    </section>
+
+    <!-- TELA 4 · PENDÊNCIAS POR SUBTIPO -->
+    <section class="screen" data-screen="3">
+      <div class="setor-top" id="pendSubTop"></div>
+      <div class="tot-row" id="pendSubTot"></div>
+    </section>
+
+    <!-- TELA 5 · PENDÊNCIAS POR UNIDADE -->
+    <section class="screen" data-screen="4">
+      <div class="setor-top" id="pendUniTop"></div>
+      <div class="tot-row" id="pendUniTot"></div>
+    </section>
+
+    <!-- TELA 6 · DESTAQUE POR ASSUNTO (campeões por subtipo) -->
+    <section class="screen" data-screen="5">
+      <div class="scr-head"><span class="eb">Reconhecimento · Campeões por Pendência</span></div>
+      <div class="campsub" id="campSub"></div>
+    </section>
+
+    <!-- TELA 7 · META DE PASTAS (velocímetros) -->
+    <section class="screen" data-screen="6">
+      <div class="scr-head"><span class="eb" id="mpHead">Meta · Pastas · Núcleo Porto Velho</span></div>
+      <div class="mg-grid" id="metaGauges"></div>
+    </section>
+
+  </div>
+
+  <!-- rodapé -->
+  <div class="footer">
+    <div class="foot-info">
+      <div class="fi"><span class="ico" id="icoDb"></span>Fonte de dados: <b id="fonte">Legal One API</b></div>
+      <div class="fi"><span class="ico" id="icoClock2"></span>Painel atualizado em: <b id="updFull">—</b></div>
+      <div class="fi"><span class="ico" id="icoTimer2"></span>Próxima atualização: <span class="hi" id="proxAtt">—</span></div>
+    </div>
+    <div class="dots">
+      <div class="dp" data-go="0"><i></i></div>
+      <div class="dp" data-go="1"><i></i></div>
+      <div class="dp" data-go="2"><i></i></div>
+      <div class="dp" data-go="3"><i></i></div>
+      <div class="dp" data-go="4"><i></i></div>
+      <div class="dp" data-go="5"><i></i></div>
+      <div class="dp" data-go="6"><i></i></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ===================== ÍCONES ===================== */
+const ICN = {
+  atrasados:`<svg class="ic c-red" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="currentColor"/></svg>`,
+  pendDia:`<svg class="ic c-orange" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8.5 3v4M15.5 3v4" stroke-linecap="round"/></svg>`,
+  pendFut:`<svg class="ic c-blue" viewBox="0 0 24 24" fill="currentColor"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.2h8a2 2 0 0 1 2 2v8.8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`,
+  total:`<svg class="ic c-purple" viewBox="0 0 24 24" fill="currentColor"><path d="M6 2.5h8.5L19 7v14.5H6z"/><path d="M14 2.5v5h5" fill="#0c1320"/></svg>`,
+  cumpDia:`<svg class="ic c-green" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.6 2.6L16 9.5" fill="none" stroke="#0c1320" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  cumpMes:`<svg class="ic c-cyan" viewBox="0 0 24 24" fill="currentColor"><rect x="3.5" y="13" width="4.2" height="8" rx="1"/><rect x="10" y="8" width="4.2" height="13" rx="1"/><rect x="16.5" y="4" width="4.2" height="17" rx="1"/></svg>`,
+  sync:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 12a9 9 0 0 1 15-6.7L21 8M21 4v4h-4M3 20v-4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  clock:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2" stroke-linecap="round"/></svg>`,
+  timer:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  db:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v13c0 1.7 3.6 3 8 3s8-1.3 8-3v-13M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>`,
+  emj:{building:"🏢",calendar:"📅",folder:"📁",shield:"🛡️",megaphone:"📢"},
+};
+const setIco=(id,svg)=>{const e=document.getElementById(id);if(e)e.innerHTML=svg;};
+setIco("icoSync",ICN.sync);setIco("icoClock",ICN.clock);setIco("icoTimer",ICN.timer);
+setIco("icoDb",ICN.db);setIco("icoClock2",ICN.clock);setIco("icoTimer2",ICN.timer);
+
+/* ===================== HELPERS ===================== */
+const nf = n => new Intl.NumberFormat("pt-BR").format(n);
+const totalPend = a => a.pendDia + a.pendFut + (a.atrasados||0); // total = atrasados + dia + futuras
+const iniciais = nome => { const p=nome.trim().split(/\s+/); return ((p[0]?.[0]||"")+(p[p.length-1]?.[0]||"")).toUpperCase(); };
+// nome curto p/ TV: primeiro + último (BRENDA RENATA NASCIMENTO DOS SANTOS -> BRENDA SANTOS)
+const encurtaNome = nome => {
+  if(!nome || nome==="—") return nome||"—";
+  const p = nome.trim().split(/\s+/);
+  if(p.length<=2) return nome;
+  return p[0] + " " + p[p.length-1];
+};
+
+/* ===================== TELA 1 · SETOR ===================== */
+function pintarSetor(A, grid, totId){
+  const tot = a => (a.pericia||0)+(a.audiencia||0)+(a.avaliacao||0);
+  const cards = A.map(a=>{
+    const row=(ic,lab,val,cls)=>`<div class="mrow"><span style="display:inline-flex" class="ic ${cls}">${ic}</span>
+      <span class="lab">${lab}</span><span class="val v-${cls.replace('c-','')}">${nf(val)}</span></div>`;
+    return `<div class="card">
+      <div class="card-head"><span class="emj">\u{1F3E2}</span><span class="ttl">${a.nome}</span></div>
+      <div class="mrows">
+        ${row(ICN.pendFut,"Perícias",a.pericia,"c-blue")}
+        ${row(ICN.total,"Audiências",a.audiencia,"c-purple")}
+        ${row(ICN.cumpMes,"Avaliação Social",a.avaliacao,"c-cyan")}
+        ${row(ICN.pendDia,"Total agendadas",tot(a),"c-orange")}
+        ${row(ICN.cumpDia,"Realizadas",a.realizadas,"c-green")}
+        ${row(ICN.atrasados,"Atrasadas",a.atrasadas,"c-red")}
+      </div></div>`;
+  }).join("");
+
+  grid.innerHTML = cards;
+  grid.style.gridTemplateColumns = "repeat(" + A.length + ", 1fr)";
+
+  const sum = k => A.reduce((s,a)=>s+(k==='tot'?tot(a):(a[k]||0)),0);
+  const tots = [
+    ["Perícias", sum("pericia"), "c-blue", ICN.pendFut],
+    ["Audiências", sum("audiencia"), "c-purple", ICN.total],
+    ["Avaliação Social", sum("avaliacao"), "c-cyan", ICN.cumpMes],
+    ["Total agendadas", sum("tot"), "c-orange", ICN.pendDia],
+    ["Realizadas", sum("realizadas"), "c-green", ICN.cumpDia],
+    ["Atrasadas", sum("atrasadas"), "c-red", ICN.atrasados],
+  ];
+  document.getElementById(totId).innerHTML = tots.map(([l,v,c,ic])=>`
+    <div class="tot"><div class="th"><span style="display:inline-flex" class="ic ${c}">${ic}</span>
+      <span class="l">${l}</span></div><div class="n v-${c.replace('c-','')}">${nf(v)}</div></div>`).join("");
+}
+
+function renderSetor(){ pintarSetor(DADOS.setor.areas, document.getElementById("setorTop"), "totRow"); }
+const CAT_COR = {pericia:"#4aa3ff", audiencia:"#b07cff", avaliacao:"#33d1c9"};
+const DOW = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+function _fmtISO(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function _parseISO(s){const p=s.split("-").map(Number);return new Date(p[0],p[1]-1,p[2]);}
+
+function renderSemana(){
+  const box=document.getElementById("calWeek"); if(!box) return;
+  const evs=DADOS.eventosSemana||[]; const hoje=DADOS.hojeISO;
+  const ini=_parseISO(DADOS.semanaInicioISO);
+  const dias=[...Array(7)].map((_,i)=>{const d=new Date(ini);d.setDate(ini.getDate()+i);return d;});
+  box.innerHTML=dias.map(d=>{
+    const iso=_fmtISO(d);
+    const lista=evs.filter(e=>e.data===iso).sort((a,b)=>a.hora.localeCompare(b.hora));
+    const chips=lista.length?lista.map(e=>`
+      <div class="chip ${e.status}" style="--c:${CAT_COR[e.cat]||'#4aa3ff'}">
+        <div class="h">${e.hora}</div><div class="t">${e.tipo}</div>${e.cliente?`<div class="cli">${e.cliente}</div>`:''}<div class="u">${e.unidade}</div>
+      </div>`).join(""):`<div class="cw-empty">—</div>`;
+    return `<div class="cw-col ${iso===hoje?'today':''}">
+      <div class="cw-head"><div class="cw-dow">${DOW[d.getDay()]}</div><div class="cw-date">${d.getDate()}</div></div>
+      <div class="cw-body">${chips}</div></div>`;
+  }).join("");
+}
+
+function renderMes(){
+  const box=document.getElementById("calMonth"); if(!box) return;
+  const evs=DADOS.eventosMes||[]; const hoje=DADOS.hojeISO;
+  const ym=DADOS.mesRef.split("-").map(Number); const Y=ym[0], M=ym[1];
+  const primeiro=new Date(Y,M-1,1);
+  const inicio=new Date(primeiro); inicio.setDate(1-primeiro.getDay());
+  const porDia={}; evs.forEach(e=>{(porDia[e.data]=porDia[e.data]||[]).push(e);});
+  const MAXV=3; let cells="";
+  for(let i=0;i<42;i++){
+    const d=new Date(inicio); d.setDate(inicio.getDate()+i);
+    const iso=_fmtISO(d), fora=(d.getMonth()!==M-1);
+    const lista=(porDia[iso]||[]).sort((a,b)=>a.hora.localeCompare(b.hora));
+    const chips=lista.slice(0,MAXV).map(e=>`<div class="cm-chip ${e.status==='feito'?'feito':''}" style="--c:${CAT_COR[e.cat]||'#4aa3ff'}">${e.hora} ${e.tipo}</div>`).join("");
+    const mais=lista.length>MAXV?`<div class="cm-more">+${lista.length-MAXV} mais</div>`:"";
+    cells+=`<div class="cm-cell ${fora?'out':''} ${iso===hoje?'today':''}"><div class="cm-n">${d.getDate()}</div>${chips}${mais}</div>`;
+  }
+  box.innerHTML=`<div class="cm-dows">${DOW.map(x=>`<div class="cm-dow">${x}</div>`).join("")}</div><div class="cm-grid">${cells}</div>`;
+}
+
+/* ===================== TELA 2 · CAMPEÕES ===================== */
+function renderCampeoes(){
+  const c=[...DADOS.campeoes].sort((a,b)=>b.pontos-a.pontos);
+  const t3=c.slice(0,3), ordem=[t3[1],t3[0],t3[2]].filter(Boolean);
+  const cls={},med={};
+  if(t3[0]){cls[t3[0].nome]="p1";med[t3[0].nome]="1";}
+  if(t3[1]){cls[t3[1].nome]="p2";med[t3[1].nome]="2";}
+  if(t3[2]){cls[t3[2].nome]="p3";med[t3[2].nome]="3";}
+  document.getElementById("podium").innerHTML = ordem.map(p=>`
+    <div class="pod ${cls[p.nome]}"><div class="av">${iniciais(p.nome)}</div>
+      <div class="nm">${p.nome}</div>
+      <div class="sc num">${nf(p.pontos)}<small>${p.area}</small></div>
+      <div class="blk">${med[p.nome]}</div></div>`).join("");
+  document.getElementById("ranklist").innerHTML = c.slice(3,9).map((p,i)=>`
+    <div class="rrow"><span class="pos num">${i+4}</span><span class="ini">${iniciais(p.nome)}</span>
+      <span class="who">${p.nome}<small>${p.area}</small></span><span class="pts num">${nf(p.pontos)}</span></div>`).join("");
+}
+
+/* ===================== TELA 3 · META ===================== */
+let gaugeOffset=0;
+function renderMeta(){
+  const m=DADOS.metaUnidade, pct=Math.min(100,Math.round(m.realizado/m.meta*100)), falta=Math.max(0,m.meta-m.realizado);
+  document.getElementById("uNome").textContent=DADOS.unidade;
+  document.getElementById("kReal").textContent=nf(m.realizado);
+  document.getElementById("kMeta").textContent=nf(m.meta);
+  document.getElementById("kFalta").textContent=nf(falta);
+  document.getElementById("gaugePct").textContent=pct+"%";
+  const r=124,circ=2*Math.PI*r,prog=document.getElementById("gaugeProg");
+  prog.style.strokeDasharray=circ;prog.style.strokeDashoffset=circ;gaugeOffset=circ*(1-pct/100);
+  document.getElementById("otherUnits").innerHTML=DADOS.outrasUnidades.map(u=>{
+    const p=Math.min(100,Math.round(u.realizado/u.meta*100));
+    return `<div class="ubar ${p>=100?'ok':''}"><div class="h"><span class="n">${u.nome}</span><span class="p num">${p}%</span></div>
+      <div class="t"><i style="width:${p}%"></i></div></div>`;}).join("");
+}
+
+/* ===================== RELÓGIO / ATUALIZAÇÃO ===================== */
+const meses=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+let proximaAtt;
+function setProxima(){ proximaAtt=new Date(Date.now()+(DADOS.minutosAtualizacao||5)*60000); }
+function fmtHora(d){return d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});}
+function fmtData(d){return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;}
+function tick(){
+  const d=new Date();
+  document.getElementById("clock").textContent=fmtHora(d);
+  document.getElementById("dateTop").textContent=fmtData(d);
+  // reinicia em
+  let s=Math.max(0,Math.round((proximaAtt-d)/1000));
+  document.getElementById("reinicia").textContent=`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  document.getElementById("proxAtt").textContent=fmtHora(proximaAtt).slice(0,5);
+  if(s<=0){ atualizar(); }
+}
+function carimbar(){
+  const d=new Date();
+  document.getElementById("updFull").textContent=`${fmtData(d)} ${fmtHora(d).slice(0,5)}`;
+  document.getElementById("cadencia").textContent=`a cada ${DADOS.minutosAtualizacao||5} minutos`;
+  document.getElementById("fonte").textContent=DADOS.fonteDados||"Legal One API";
+}
+function atualizar(){
+  if(DADOS.atualizarSupabaseMin>0 && typeof carregarDoSupabase==="function") carregarDoSupabase();
+  renderTudo(); setProxima(); carimbar();
+}
+/* ===================== TELA 4 · META (VELOCÍMETROS) ===================== */
+// cor por faixa: <70% vermelho · 70–99% laranja · 100%+ verde
+function corPct(p){
+  if(p >= 100) return {cls:"g-green",  stroke:"var(--green)",  glow:"var(--green-g)"};
+  if(p >= 70)  return {cls:"g-orange", stroke:"var(--orange)", glow:"var(--orange-g)"};
+  return              {cls:"g-red",    stroke:"var(--red)",    glow:"var(--red-g)"};
+}
+// um velocímetro grande (arco 270°); mostra só a % — sem quantidade
+function gaugeSVG(g, cat){
+  const pct = g.pct||0;
+  const capped = Math.min(100, pct);           // arco trava em 100%
+  const c = corPct(pct);
+  const R = 80, GAP = 0.75;                     // GAP=0.75 → arco de 270° (3/4)
+  const circ = 2*Math.PI*R;
+  const arco = circ*GAP;                        // comprimento visível do trilho
+  const off  = arco*(1-capped/100);             // quanto "falta" preencher
+  const dash = `${arco} ${circ}`;
+  return `
+    <div class="gwrap">
+      <div class="gg-svg">
+        <svg viewBox="0 0 200 200">
+          <circle class="gg-track" cx="100" cy="100" r="${R}"
+                  style="stroke-dasharray:${dash}"/>
+          <circle class="gg-prog"  cx="100" cy="100" r="${R}"
+                  style="stroke:${c.stroke};stroke-dasharray:${dash};
+                         stroke-dashoffset:${off};filter:drop-shadow(0 0 8px ${c.glow})"/>
+        </svg>
+        <div class="gg-center">
+          <span class="pct ${c.cls}">${nf(g.real ?? g.realizado ?? 0)}</span>
+          <span class="plab">de ${nf(g.meta ?? 0)} · meta</span>
+        </div>
+      </div>
+      <div class="gg-cat">${cat}</div>
+    </div>`;
+}
+function renderMetas(){
+  const box = document.getElementById("metasGrid");
+  if(!box) return;
+  const M = DADOS.produtividadeUnidades || [];
+  const max = Math.max(1, ...M.map(u=>u.total||0));
+  box.innerHTML = M.map(u=>{
+    const w = Math.round((u.total||0)/max*100);
+    const ativo = (u.total||0) > 0;
+    return `<div class="mt-row">
+      <div class="mt-uni">${u.unidade}</div>
+      <div class="mt-barwrap">
+        <div class="mt-bar"><div class="mt-fill" style="width:${w}%;background:${ativo?'#33d18a':'#54637a'}"></div></div>
+        <div class="mt-sub">${u.pericia||0} perícias · ${u.audiencia||0} audiências · ${u.avaliacao||0} avaliações</div>
+      </div>
+      <div class="mt-pct" style="color:${ativo?'#eaf2ff':'#54637a'}">${u.total||0}</div>
+    </div>`;
+  }).join("");
+}
+
+function renderMetaPastas(){
+  const box = document.getElementById("metaPastas");
+  if(!box) return;
+  const M = DADOS.metasPastas || [];
+  const head = document.getElementById("mpHead");
+  if(head) head.textContent = `Meta ${DADOS.mesMetaLabel||""} · Pastas · Núcleo ${DADOS.nucleo||"Porto Velho"}`;
+  const cor = p => p>=100 ? "#33d18a" : (p>=70 ? "#ffb020" : "#ff5a6a");
+  const metrica = (lab,g)=>{
+    if(!g.tem){
+      return `<div class="mp-metric"><div class="mp-lab">${lab}</div>
+        <div class="mp-bar"><div class="mp-fill" style="width:0%"></div></div>
+        <div class="mp-val" style="color:#54637a">sem meta</div></div>`;
+    }
+    const w = Math.min(100, g.pct);
+    return `<div class="mp-metric"><div class="mp-lab">${lab}</div>
+      <div class="mp-bar"><div class="mp-fill" style="width:${w}%;background:${cor(g.pct)}"></div></div>
+      <div class="mp-val" style="color:${cor(g.pct)}">${g.pct}%</div></div>`;
+  };
+  box.innerHTML = M.map(u=>`
+    <div class="mp-row">
+      <div class="mp-uni">${u.unidade}</div>
+      <div class="mp-metrics">${metrica("Abertas",u.abertas)}${metrica("Enviadas",u.enviadas)}</div>
+    </div>`).join("");
+}
+
+/* ===================== TELAS 5/6 · PENDÊNCIAS ===================== */
+function _pendCard(a){
+  const r=(ic,lab,val,c)=>`<div class="mrow"><span style="display:inline-flex" class="ic ${c}">${ic}</span>
+    <span class="lab">${lab}</span><span class="val v-${c.replace('c-','')}">${nf(val)}</span></div>`;
+  return `<div class="card ${a.urgente?'urgente':''}">
+    <div class="card-head"><span class="emj">${a.emj||'🛡️'}</span><span class="ttl">${a.nome}</span></div>
+    <div class="mrows">
+      ${r(ICN.atrasados,"Atrasados",a.atrasados,"c-red")}
+      ${r(ICN.pendDia,"Do dia",a.pendDia,"c-orange")}
+      ${r(ICN.pendFut,"Futuras",a.pendFut,"c-blue")}
+      ${r(ICN.total,"Total pend.",a.total,"c-purple")}
+      ${r(ICN.cumpDia,"Cumpridos dia",a.cumpridoDia,"c-green")}
+      ${r(ICN.cumpMes,"Cumpridos mês",a.cumpridoMes,"c-cyan")}
+    </div></div>`;
+}
+function _pendTot(A, totId){
+  const s=k=>A.reduce((x,a)=>x+(a[k]||0),0);
+  const T=[
+    ["Total atrasados",s("atrasados"),"c-red",ICN.atrasados],
+    ["Pendências do dia",s("pendDia"),"c-orange",ICN.pendDia],
+    ["Pendências futuras",s("pendFut"),"c-blue",ICN.pendFut],
+    ["Total de pendências",s("total"),"c-purple",ICN.total],
+    ["Cumpridos do dia",s("cumpridoDia"),"c-green",ICN.cumpDia],
+    ["Cumpridos do mês",s("cumpridoMes"),"c-cyan",ICN.cumpMes],
+  ];
+  document.getElementById(totId).innerHTML=T.map(([l,v,c,ic])=>`
+    <div class="tot"><div class="th"><span style="display:inline-flex" class="ic ${c}">${ic}</span>
+      <span class="l">${l}</span></div><div class="n v-${c.replace('c-','')}">${nf(v)}</div></div>`).join("");
+}
+function renderPendSubtipo(){
+  const A=(DADOS.pendSubtipo&&DADOS.pendSubtipo.areas)||[];
+  const g=document.getElementById("pendSubTop"); if(!g) return;
+  g.style.gridTemplateColumns="repeat("+Math.max(1,A.length)+",1fr)";
+  g.innerHTML=A.map(_pendCard).join("");
+  _pendTot(A,"pendSubTot");
+}
+function renderPendUnidade(){
+  const A=(DADOS.pendUnidade&&DADOS.pendUnidade.areas)||[];
+  const g=document.getElementById("pendUniTop"); if(!g) return;
+  g.style.gridTemplateColumns="repeat("+Math.max(1,A.length)+",1fr)";
+  g.innerHTML=A.map(a=>_pendCard({...a,emj:a.emj||"🏢",urgente:false})).join("");
+  _pendTot(A,"pendUniTot");
+}
+/* ===================== TELA 7 · PASTAS ABERTAS ===================== */
+function renderPastas(){
+  const D=DADOS.pastasAbertas||{areas:[],totalSemana:0,totalMes:0};
+  const g=document.getElementById("pastasTop"); if(!g) return;
+  g.style.gridTemplateColumns="repeat("+Math.max(1,D.areas.length)+",1fr)";
+  g.innerHTML=D.areas.map(a=>`
+    <div class="pcard"><div class="head"><span class="emj">📂</span><span class="ttl">${a.nome}</span></div>
+      <div class="ptwo">
+        <div class="pcell semana"><span class="l">Semana</span><span class="n num">${nf(a.semana)}</span></div>
+        <div class="pcell mes"><span class="l">Mês</span><span class="n num">${nf(a.mes)}</span></div>
+      </div></div>`).join("");
+  document.getElementById("pastasTot").innerHTML=`
+    <div class="tot"><div class="th"><span class="l">Total da Semana</span></div><div class="n v-cyan">${nf(D.totalSemana)}</div></div>
+    <div class="tot"><div class="th"><span class="l">Total do Mês</span></div><div class="n v-green">${nf(D.totalMes)}</div></div>`;
+}
+
+/* ============ TELA · DESTAQUE POR ASSUNTO (campeões por subtipo) ============ */
+function renderCampSub(){
+  const box=document.getElementById("campSub"); if(!box) return;
+  let C=DADOS.campeoesSubtipo;
+  if(!C || !C.length){
+    // fallback: monta o esqueleto dos 6 cards a partir dos subtipos da tela
+    // de pendências (que já vêm no DADOS), mostrando "—" até haver dado real.
+    const A=(DADOS.pendSubtipo&&DADOS.pendSubtipo.areas)||[];
+    C=A.map(a=>({subtipo:a.nome,emj:a.emj,semana:{nome:"—",qtd:0},mes:{nome:"—",qtd:0}}));
+  }
+  box.innerHTML=C.map(c=>{
+    const cel=(cls,lab,o)=>`<div class="cs-p ${cls}">
+        <span class="cs-lab">${lab}</span>
+        <span class="cs-nm">${encurtaNome(o&&o.nome)||"—"}</span>
+        <span class="cs-q">${nf((o&&o.qtd)||0)}</span></div>`;
+    return `<div class="cs-card">
+      <div class="cs-st">${c.emj?c.emj+' ':''}${c.subtipo}</div>
+      <div class="cs-two">${cel("semana","Semana",c.semana)}${cel("mes","Mês",c.mes)}</div>
+    </div>`;
+  }).join("");
+}
+
+function renderMetaGauges(){
+  const box=document.getElementById("metaGauges"); if(!box) return;
+  const M=DADOS.metasPastas||[];
+  const head=document.getElementById("mpHead");
+  if(head) head.textContent=`Meta ${DADOS.mesMetaLabel||""} · Pastas · Núcleo ${DADOS.nucleo||"Porto Velho"}`;
+  box.innerHTML=M.map(u=>`
+    <div class="uni-block">
+      <div class="uni-name"><span class="u">${u.unidade}</span><span class="tag">Meta do mês</span></div>
+      ${gaugeSVG(u.abertas||{pct:0},"Pastas Abertas")}
+      ${gaugeSVG(u.enviadas||{pct:0},"Pastas Enviadas")}
+    </div>`).join("");
+}
+function renderTudo(){ renderSetor(); renderSemana(); renderMes();
+  renderPendSubtipo(); renderPendUnidade(); renderCampSub(); renderMetaGauges(); }
+
+setProxima(); renderTudo(); carimbar(); tick(); setInterval(tick,1000);
+
+/* ===================== ROTAÇÃO ===================== */
+const screens=[...document.querySelectorAll(".screen")].slice(0,7);
+const dots=[...document.querySelectorAll(".dp")].slice(0,7);
+const titulos=[ (DADOS.setor.titulo||"Geral").toUpperCase(), ((DADOS.setor2&&DADOS.setor2.titulo)||"Agenda da Semana").toUpperCase(), ((DADOS.setor3&&DADOS.setor3.titulo)||"Agenda do Mês").toUpperCase(), "PENDÊNCIAS POR SUBTIPO", "PENDÊNCIAS POR UNIDADE", "DESTAQUE POR ASSUNTO", "META DO MÊS · PASTAS" ];
+let idx=0,pausado=false,t0=0;  // rodízio tela 1 <-> tela 2
+const DUR=()=>{const s=DADOS.segundosPorTela; return ((Array.isArray(s)?s[idx]:s)||16)*1000;};
+function animaGauge(){const p=document.getElementById("gaugeProg");requestAnimationFrame(()=>p.style.strokeDashoffset=gaugeOffset);}
+function mostrar(i){
+  idx=(i+screens.length)%screens.length;
+  screens.forEach((s,k)=>s.classList.toggle("active",k===idx));
+  dots.forEach((d,k)=>{d.classList.toggle("active",k===idx);d.querySelector("i").style.width="0%";});
+  document.getElementById("ptitle").textContent=titulos[idx];
+  t0=performance.now();
+}
+function loop(now){
+  if(!pausado){const p=Math.min(1,(now-t0)/DUR());dots[idx].querySelector("i").style.width=(p*100)+"%";if(p>=1)mostrar(idx+1);}
+  else t0=now;
+  requestAnimationFrame(loop);
+}
+mostrar(0);requestAnimationFrame(loop);
+dots.forEach(d=>d.addEventListener("click",()=>mostrar(+d.dataset.go)));
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight")mostrar(idx+1);
+  else if(e.key==="ArrowLeft")mostrar(idx-1);
+  else if(e.key===" "){e.preventDefault();pausado=!pausado;t0=performance.now();}
+  else if(e.key==="f"||e.key==="F"){document.fullscreenElement?document.exitFullscreen?.():document.documentElement.requestFullscreen?.();}
+  else if(["1","2","3","4","5","6","7"].includes(e.key))mostrar(+e.key-1);
+});
+
+/* ===================== (OPCIONAL) SUPABASE =====================
+   Preencha ANON (chave pública) e ajuste as views/colunas reais.
+   Depois ponha atualizarSupabaseMin > 0 lá no DADOS.
+
+async function carregarDoSupabase(){
+  const URL="https://sevpcpjryyryrztobqit.supabase.co";
+  const ANON="SUA_CHAVE_ANON_PUBLICA";
+  const h={apikey:ANON,Authorization:"Bearer "+ANON};
+  try{
+    // exemplo — troque pelas colunas reais:
+    // const dash = await (await fetch(`${URL}/rest/v1/vw_v360_dashboard?select=*&setor=eq.ADM`,{headers:h})).json();
+    // DADOS.setor.areas = dash.map(r=>({nome:r.area,icone:"folder",atrasados:r.atrasados,pendDia:r.pend_dia,pendFut:r.pend_futuras,cumpridoDia:r.cumpridos_dia,cumpridoMes:r.cumpridos_mes}));
+  }catch(err){console.error("Supabase:",err);}
+}
+================================================================ */
+</script>
+</body>
+</html>
