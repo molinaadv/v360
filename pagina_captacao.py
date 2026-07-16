@@ -11,7 +11,6 @@
 from datetime import timedelta
 
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -53,11 +52,14 @@ def _grade(cards, por_linha=3):
 
 
 def _barra_h(df_plot, x, y, titulo, cor=None, key=None, pct=False, altura=430):
-    """Barra horizontal dark (maior no topo)."""
-    fig = px.bar(df_plot, x=x, y=y, orientation="h",
-                 text=[f"{v:.0f}%" if pct else t.fmt(v) for v in df_plot[x]])
-    fig.update_traces(marker_color=cor or t.CORES["accent"],
-                      textposition="outside", cliponaxis=False)
+    """Barra horizontal dark (maior no topo). Usa go.Bar (sem plotly.express)."""
+    xs = list(df_plot[x])
+    ys = list(df_plot[y])
+    fig = go.Figure(go.Bar(
+        x=xs, y=ys, orientation="h",
+        marker_color=cor or t.CORES["accent"],
+        text=[f"{v:.0f}%" if pct else t.fmt(v) for v in xs],
+        textposition="outside", cliponaxis=False))
     fig.update_layout(yaxis={"categoryorder": "total ascending"})
     st.plotly_chart(t.layout(fig, altura, titulo), use_container_width=True, key=key)
 
@@ -209,19 +211,20 @@ def _dashboard(df_prep: pd.DataFrame):
     col1, col2 = st.columns(2)
     with col1:
         t.secao("2. Funil de Conversão")
-        funil = pd.DataFrame({
-            "Etapa": ["Clientes", "Novos", "Em atendimento", "Convertidos", "Perdidos"],
-            "Quantidade": [total, novos, atend, conv, perd]})
-        fig = px.funnel(funil, x="Quantidade", y="Etapa", text="Quantidade")
-        fig.update_traces(marker_color=t.CORES["accent"])
+        etapas = ["Clientes", "Novos", "Em atendimento", "Convertidos", "Perdidos"]
+        vals = [total, novos, atend, conv, perd]
+        fig = go.Figure(go.Funnel(y=etapas, x=vals, textinfo="value",
+                                  marker={"color": t.CORES["accent"]}))
         st.plotly_chart(t.layout(fig, 390), use_container_width=True, key="gr_dash_funil")
     with col2:
         t.secao("3. Evolução Diária")
         dd = df.copy()
         dd["dia"] = dd["data_captacao"].dt.date
         diario = dd.groupby("dia").size().reset_index(name="Clientes")
-        figl = px.line(diario, x="dia", y="Clientes", markers=True)
-        figl.update_traces(line_color=t.CORES["azul"], marker_color=t.CORES["azul"])
+        figl = go.Figure(go.Scatter(
+            x=list(diario["dia"]), y=list(diario["Clientes"]), mode="lines+markers",
+            line=dict(color=t.CORES["azul"], width=3),
+            marker=dict(color=t.CORES["azul"], size=8)))
         st.plotly_chart(t.layout(figl, 390), use_container_width=True, key="gr_dash_evol")
 
     # 4 — Ranking de atendentes
