@@ -6,6 +6,8 @@
 #  1) painéis-página de /pages (URL = nome do arquivo);
 #  2) Painel Operacional ADM por unidade (?setor=adm&unidade=…).
 # =====================================================================
+from urllib.parse import quote
+
 import streamlit as st
 
 import theme as t
@@ -57,7 +59,21 @@ def render(df_tasks, df_colabs=None, df_metas=None):
         cols[i % 3].markdown(_card_link(tv["arq"], tv["nome"], tv["desc"], tv["ic"]),
                              unsafe_allow_html=True)
 
-    # ---- 2) Painel Operacional ADM por unidade ----
+    # ---- 2) Painel PADRÃO por unidade (perícias & audiências, todas as telas) ----
+    t.secao("Painel padrão por unidade")
+    st.caption("Um modelo único (perícias, audiências, pendências, pastas e meta) que abre "
+               "para a unidade que você escolher — sem precisar de um arquivo por unidade.")
+    if "unidade_nome" in df_tasks.columns:
+        uni_lst = sorted(df_tasks["unidade_nome"].dropna().astype(str).unique())
+        if uni_lst:
+            u_pad = st.selectbox("Escolha a unidade", uni_lst, key="tvpadrao_uni")
+            href = f"painel_tv_padrao?unidade={quote(str(u_pad))}"
+            colp = st.columns(3)
+            colp[0].markdown(
+                _card_link(href, u_pad, "Painel padrão · todas as telas", "🖥️"),
+                unsafe_allow_html=True)
+
+    # ---- 3) Painel Operacional ADM por unidade ----
     if tvop is None:
         return
     t.secao("Painel Operacional ADM (por unidade)")
