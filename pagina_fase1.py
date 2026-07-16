@@ -9,11 +9,40 @@ from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 import data
 import theme as t
 import regras as r
+
+# ---- Benefícios & Acordos (Michelle · Tela 2) ----
+G_INDEFERIDO = ["Benefício ADM - Indeferido"]
+G_DEFERIDOS = ["Benefício ADM - Deferido", "Benefício ADM - Deferido REENVIO",
+               "Prorrogação de Benefício ADM - Deferido", "Benefício ADM - Deferido Temporariamente",
+               "Prorrogação de Benefício ADM", "PAB Concedido", "Benefício Implantado",
+               "Benefício ADM - Deferido em Perícia Revisional"]
+LABELS_DEF = {"Benefício ADM - Deferido": "Deferido", "Benefício ADM - Deferido REENVIO": "Deferido REENVIO",
+              "Prorrogação de Benefício ADM - Deferido": "Prorrog. Deferido",
+              "Benefício ADM - Deferido Temporariamente": "Deferido Temporário",
+              "Prorrogação de Benefício ADM": "Prorrogação ADM", "PAB Concedido": "PAB Concedido",
+              "Benefício Implantado": "Implantado", "Benefício ADM - Deferido em Perícia Revisional": "Deferido Perícia Rev."}
+G_PRE_ACORDO = ["Pré-Acordo"]
+G_ACORDO_AGENDADO = ["Acordo Agendado"]
+G_ACORDO_REALIZADO = ["Acordo Realizado"]
+
+# ---- Alvará & Levantamento (Michelle · Tela 3) ----
+G_ALVARA = ["Precatório Disponível p/ Saque", "Precatório Expedido", "RPV Disponível p/ Saque",
+            "RPV Expedido", "Aguardando Levantamento do Alvará"]
+LABELS_ALV = {"Precatório Disponível p/ Saque": "Precatório Disp. Saque", "Precatório Expedido": "Precatório Expedido",
+              "RPV Disponível p/ Saque": "RPV Disp. Saque", "RPV Expedido": "RPV Expedido",
+              "Aguardando Levantamento do Alvará": "Aguard. Levant. Alvará"}
+SINGLES_ALV = [("Acompanhamento de Cliente ao Banco", "Acomp. Cliente ao Banco", t.CORES["azul"]),
+               ("Enviado ao Banco (Levantamento)", "Enviado ao Banco", t.CORES["roxo"]),
+               ("Alvará Levantado", "Alvará Levantado", t.CUMPRIDO),
+               ("Agendamento Recibo - RPV/Alvará", "Agend. Recibo RPV/Alvará", t.CORES["azul"]),
+               ("Agendamento Receber Ofício - RPV", "Agend. Ofício RPV", t.CORES["civel"]),
+               ("Pagar cliente", "Pagar Cliente", t.CORES["azul"])]
 
 CSV_PADRAO = "indicadores_fase1.csv"
 STATUS_ABERTO = ["Pendente", "Não cumprido", "Iniciado"]
@@ -57,14 +86,17 @@ SECOES = [
     {"titulo": "Inicial enviada ao Protocolo (e Cível) — Pendentes e Cumpridos", "indicadores": ["Inicial enviada ao protocolo", "Inicial enviada ao protocolo - Cível"], "modo": "pendente_cumprido", "dim": "unidade"},
 ]
 
-# agrupamento em abas (índices das seções, 0-based)
+# abas: (rótulo, tipo, payload)
+#   tipo "secoes" → lista de índices em SECOES
+#   tipo "beneficios"/"alvara" → telas de desfecho no estilo dos painéis da Michelle
 GRUPOS = [
-    ("📂 Abertura & Pastas", range(0, 7)),
-    ("⚠️ Pendências & Análise", range(7, 10)),
-    ("📅 Agendamento & ADM", range(10, 13)),
-    ("📢 Denúncias", range(13, 14)),
-    ("🏛️ Benefícios & Acordos", range(14, 19)),
-    ("📝 Confecção & Protocolo", range(19, len(SECOES))),
+    ("📂 Abertura & Pastas", "secoes", list(range(0, 7))),
+    ("⚠️ Pendências & Análise", "secoes", [7, 8, 9, 18]),  # + Análise Final
+    ("📅 Agendamento & ADM", "secoes", list(range(10, 13))),
+    ("📢 Denúncias", "secoes", [13]),
+    ("🏛️ Benefícios & Acordos", "beneficios", None),
+    ("💵 Alvará & Levantamento", "alvara", None),
+    ("📝 Confecção & Protocolo", "secoes", list(range(19, 23))),
 ]
 
 
@@ -125,8 +157,10 @@ def _area_do_subtipo(mapa):
 
 # ---------- contagem ----------
 def _entre(serie, ini, fim):
+    # compara com Timestamp (não .dt.date): robusto a série vazia, que em
+    # pandas 2 vira datetime64[s] e quebra a comparação com date.
     s = pd.to_datetime(serie, errors="coerce")
-    return s.notna() & (s.dt.date >= ini) & (s.dt.date <= fim)
+    return s.notna() & (s >= pd.Timestamp(ini)) & (s < pd.Timestamp(fim) + pd.Timedelta(days=1))
 
 
 def _aplica_modo(df, subtipos, modo, ini, fim):
@@ -182,7 +216,7 @@ def _render_secao(num, spec, df, mapa, area_map, ini, fim, hoje):
         pend = base[base["status_nome"].isin(STATUS_ABERTO)]
         if "end_datetime" in pend.columns:
             dm = pd.to_datetime(pend["end_datetime"], errors="coerce")
-            atras = pend[dm.notna() & (dm.dt.date < hoje)]
+            atras = pend[dm.notna() & (dm < pd.Timestamp(hoje))]
         else:
             atras = pend.iloc[0:0]
         c1, c2 = st.columns(2)
@@ -238,6 +272,93 @@ def _diagnostico(df, mapa):
             st.success("Todos os subtipos da planilha casaram com os dados. 🎉")
 
 
+# ---------- telas de desfecho (estilo painel Michelle) ----------
+def _ab_cump(df, subtipos, ini, fim):
+    base = df[df["subtipo_nome"].isin(subtipos)]
+    aberto = int(base["status_nome"].isin(STATUS_ABERTO).sum())
+    cump = int(((base["status_nome"] == STATUS_CUMPRIDO) & _entre(base["data_conclusao"], ini, fim)).sum())
+    return aberto, cump
+
+
+def _card_desfecho(nome, aberto, cumprido, cor):
+    tot = (aberto + cumprido) or 1
+    return (f'<div style="background:linear-gradient(160deg,{t.CORES["panel"]},{t.CORES["panel2"]});'
+            f'border:1px solid {t.CORES["line"]};border-radius:16px;padding:16px 18px;margin-bottom:14px;'
+            f'box-shadow:0 10px 30px rgba(0,0,0,.25);">'
+            f'<div style="font-weight:800;color:{t.CORES["ink"]};font-size:14px;"><span style="color:{cor};">●</span> {nome}</div>'
+            f'<div style="display:flex;gap:48px;margin-top:12px;">'
+            f'<div><div style="font-size:34px;font-weight:900;color:{t.ABERTO};line-height:1;">{aberto}</div>'
+            f'<div style="color:{t.CORES["muted"]};font-size:12px;margin-top:4px;">Em aberto</div></div>'
+            f'<div><div style="font-size:34px;font-weight:900;color:{t.CUMPRIDO};line-height:1;">{cumprido}</div>'
+            f'<div style="color:{t.CORES["muted"]};font-size:12px;margin-top:4px;">Cumpr./mês</div></div></div>'
+            f'<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:14px;background:{t.CORES["panel2"]};">'
+            f'<div style="width:{aberto / tot * 100:.1f}%;background:{t.ABERTO};"></div>'
+            f'<div style="width:{cumprido / tot * 100:.1f}%;background:{t.CUMPRIDO};"></div></div></div>')
+
+
+def _donut_pct(aberto, cumprido, key):
+    tot = aberto + cumprido
+    pct = round(cumprido / tot * 100) if tot else 0
+    fig = go.Figure(go.Pie(values=[aberto or 0, cumprido or 0], labels=["Em aberto", "Cumprido"], hole=0.72,
+                           sort=False, marker=dict(colors=[t.ABERTO, t.CUMPRIDO], line=dict(color=t.CORES["bg"], width=2)),
+                           textinfo="none", hoverinfo="label+value"))
+    fig.add_annotation(text=f"<b>{pct}%</b><br>CUMPRIDO", showarrow=False,
+                       font=dict(color=t.CORES["ink"], size=20))
+    fig.update_layout(showlegend=False)
+    st.plotly_chart(t.layout(fig, 260), use_container_width=True, key=key)
+
+
+def _linha_sub(label, aberto, cumprido, mx):
+    mx = mx or 1
+    return (f'<div style="margin:7px 0;">'
+            f'<div style="display:flex;justify-content:space-between;color:{t.CORES["muted"]};font-size:12.5px;">'
+            f'<span>{label}</span><span><b style="color:{t.ABERTO};">{aberto}</b> &nbsp;<b style="color:{t.CUMPRIDO};">{cumprido}</b></span></div>'
+            f'<div style="display:flex;height:7px;border-radius:4px;overflow:hidden;margin-top:3px;background:{t.CORES["panel2"]};">'
+            f'<div style="width:{aberto / mx * 100:.1f}%;background:{t.ABERTO};"></div>'
+            f'<div style="width:{cumprido / mx * 100:.1f}%;background:{t.CUMPRIDO};"></div></div></div>')
+
+
+def _consolidado(df, subtipos, labels, ini, fim, titulo, key):
+    t.secao(titulo)
+    dados = [(labels.get(s, s), *_ab_cump(df, [s], ini, fim)) for s in subtipos]
+    tot_ab = sum(a for _, a, _ in dados)
+    tot_cu = sum(c for _, _, c in dados)
+    mx = max([a + c for _, a, c in dados] + [1])
+    c1, c2 = st.columns([1, 1.5])
+    with c1:
+        _donut_pct(tot_ab, tot_cu, key=f"{key}_donut")
+        st.markdown(
+            f'<div style="display:flex;gap:28px;justify-content:center;">'
+            f'<div style="text-align:center;"><div style="font-size:26px;font-weight:900;color:{t.ABERTO};">{tot_ab}</div>'
+            f'<div style="color:{t.CORES["muted"]};font-size:12px;">Em aberto</div></div>'
+            f'<div style="text-align:center;"><div style="font-size:26px;font-weight:900;color:{t.CUMPRIDO};">{tot_cu}</div>'
+            f'<div style="color:{t.CORES["muted"]};font-size:12px;">Cumpr./mês</div></div></div>'
+            f'<div style="text-align:center;color:{t.CORES["dim"]};font-size:12px;margin-top:8px;">'
+            f'Total no mês: <b>{tot_ab + tot_cu}</b> ({len(subtipos)} subtipos)</div>',
+            unsafe_allow_html=True)
+    with c2:
+        st.markdown("".join(_linha_sub(n, a, c, mx) for n, a, c in dados), unsafe_allow_html=True)
+
+
+def _tab_beneficios(df, ini, fim):
+    cards = [("Indeferido", G_INDEFERIDO, t.ATRASADO), ("Pré-Acordo", G_PRE_ACORDO, t.CORES["azul"]),
+             ("Acordo Agendado", G_ACORDO_AGENDADO, t.CORES["roxo"]), ("Acordo Realizado", G_ACORDO_REALIZADO, t.CUMPRIDO)]
+    cols = st.columns(2)
+    for i, (nome, subs, cor) in enumerate(cards):
+        ab, cu = _ab_cump(df, subs, ini, fim)
+        cols[i % 2].markdown(_card_desfecho(nome, ab, cu, cor), unsafe_allow_html=True)
+    _consolidado(df, G_DEFERIDOS, LABELS_DEF, ini, fim, "Deferidos (consolidado)", "def")
+
+
+def _tab_alvara(df, ini, fim):
+    _consolidado(df, G_ALVARA, LABELS_ALV, ini, fim, "Alvará (consolidado)", "alv")
+    t.secao("Levantamento e pagamento ao cliente")
+    cols = st.columns(3)
+    for i, (sub, label, cor) in enumerate(SINGLES_ALV):
+        ab, cu = _ab_cump(df, [sub], ini, fim)
+        cols[i % 3].markdown(_card_desfecho(label, ab, cu, cor), unsafe_allow_html=True)
+
+
 def render(df_f, df_metas_f, ano, mes):
     ini, fim = data.periodo_mes(ano, mes)
     hoje = data.hoje()
@@ -273,12 +394,16 @@ def render(df_f, df_metas_f, ano, mes):
 
     # ---- abas por grupo ----
     abas = st.tabs([g[0] for g in GRUPOS])
-    for aba, (_, idxs) in zip(abas, GRUPOS):
+    for aba, (label, kind, payload) in zip(abas, GRUPOS):
         with aba:
-            for i in idxs:
-                spec = SECOES[i]
-                try:
-                    _render_secao(i + 1, spec, df_f, mapa, area_map, ini, fim, hoje)
-                except Exception as e:
-                    st.error(f"Seção {i + 1} ({spec['titulo']}) falhou.")
-                    st.exception(e)
+            if kind == "beneficios":
+                _tab_beneficios(df_f, ini, fim)
+            elif kind == "alvara":
+                _tab_alvara(df_f, ini, fim)
+            else:
+                for i in payload:
+                    try:
+                        _render_secao(i + 1, SECOES[i], df_f, mapa, area_map, ini, fim, hoje)
+                    except Exception as e:
+                        st.error(f"Seção {i + 1} ({SECOES[i]['titulo']}) falhou.")
+                        st.exception(e)

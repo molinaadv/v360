@@ -33,8 +33,9 @@ def entre(df: pd.DataFrame, col: str, ini, fim) -> pd.DataFrame:
     """Linhas cujo `col` (datetime Manaus) cai no intervalo [ini, fim] por dia."""
     if col not in df.columns:
         return df.iloc[0:0]
+    # compara com Timestamp (não .dt.date): robusto a série vazia (datetime64[s])
     s = pd.to_datetime(df[col], errors="coerce")
-    return df[s.notna() & (s.dt.date >= ini) & (s.dt.date <= fim)]
+    return df[s.notna() & (s >= pd.Timestamp(ini)) & (s < pd.Timestamp(fim) + pd.Timedelta(days=1))]
 
 
 def abertas(df: pd.DataFrame) -> pd.DataFrame:

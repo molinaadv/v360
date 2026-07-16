@@ -88,7 +88,6 @@ st.sidebar.markdown(
 
 PAGINAS = [
     ("🏠  Executivo",     "Executivo"),
-    ("📊  Fase 1",        "Fase1"),
     ("💡  Insights V360", "Insights"),
     ("🎯  Metas",         "Metas"),
     ("🗺️  Mapa",          "Mapa"),
@@ -189,8 +188,6 @@ if pagina != "TV":
 # =====================================================================
 try:
     if pagina == "Executivo":
-        pagina_executivo.render(df_f, df_metas_f, ano_filtro, mes_filtro)
-    elif pagina == "Fase1":
         pagina_fase1.render(df_f, df_metas_f, ano_filtro, mes_filtro)
     elif pagina == "Insights":
         pagina_insights.render(df_f, df_metas_f, ano_filtro, mes_filtro)
