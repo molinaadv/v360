@@ -161,6 +161,7 @@ if pagina != "TV":
 
     if st.columns([5, 1])[1].button("🔄 Atualizar", use_container_width=True):
         st.cache_data.clear()
+        st.cache_resource.clear()   # dados agora ficam em cache_resource
         st.rerun()
 
     df_f = df_tasks
