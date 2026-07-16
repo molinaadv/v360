@@ -103,16 +103,15 @@ def login_gate() -> bool:
             senha = st.text_input("Senha", type="password")
             ok = st.form_submit_button("Entrar", use_container_width=True)
         if ok:
-            if not _usuarios():
+            u = _achar(email, senha)
+            if u:
+                st.session_state["v360_user"] = u
+                st.rerun()
+            elif not _usuarios_secrets() and not usuarios_db.listar():
                 st.error("Nenhum usuário configurado. Adicione o bloco [usuarios] "
                          "nos Secrets do app (veja secrets.toml.example).")
             else:
-                u = _achar(email, senha)
-                if u:
-                    st.session_state["v360_user"] = u
-                    st.rerun()
-                else:
-                    st.error("E-mail ou senha incorretos.")
+                st.error("E-mail ou senha incorretos.")
     return False
 
 
