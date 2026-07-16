@@ -362,7 +362,7 @@ def _tab_alvara(df, ini, fim):
 def render(df_f, df_metas_f, ano, mes):
     ini, fim = data.periodo_mes(ano, mes)
     hoje = data.hoje()
-    t.titulo("🏠 EXECUTIVO — FASE 1",
+    t.titulo("🏠 EXECUTIVO",
              f"Período: {ini.strftime('%d/%m/%Y')} a {fim.strftime('%d/%m/%Y')} · "
              "indicadores definidos na planilha indicadores_fase1.csv.",
              pills=[t.pill(f"Competência · {mes:02d}/{ano}", ROXO), t.pill("ao vivo", live=True)])
