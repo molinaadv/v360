@@ -340,23 +340,41 @@ def _consolidado(df, subtipos, labels, ini, fim, titulo, key):
         st.markdown("".join(_linha_sub(n, a, c, mx) for n, a, c in dados), unsafe_allow_html=True)
 
 
+def _por_unidade_ac(df, subtipos, titulo, ini, fim, key):
+    """Barras por unidade: Em aberto (laranja) + Cumprido no mês (verde) —
+    mesmo formato das outras seções, só que para os desfechos."""
+    t.secao(titulo)
+    base = df[df["subtipo_nome"].isin(subtipos)]
+    pend = base[base["status_nome"].isin(STATUS_ABERTO)]
+    cump = base[(base["status_nome"] == STATUS_CUMPRIDO) & _entre(base["data_conclusao"], ini, fim)]
+    g = pd.concat([pend.groupby("unidade_nome").size().rename("Em aberto"),
+                   cump.groupby("unidade_nome").size().rename("Cumprido")], axis=1).fillna(0).reset_index()
+    if g.empty or g[["Em aberto", "Cumprido"]].to_numpy().sum() == 0:
+        st.info("Sem dados para este recorte.")
+        return
+    g["_tot"] = g["Em aberto"] + g["Cumprido"]
+    g = g.sort_values("_tot", ascending=False).head(30)
+    longo = g.melt(id_vars="unidade_nome", value_vars=["Em aberto", "Cumprido"],
+                   var_name="Situação", value_name="Qtd")
+    fig = px.bar(longo, x="unidade_nome", y="Qtd", color="Situação", text="Qtd", barmode="group",
+                 color_discrete_map={"Em aberto": t.ABERTO, "Cumprido": t.CUMPRIDO})
+    fig.update_traces(textposition="outside", cliponaxis=False, textfont_color=t.CORES["ink"])
+    st.plotly_chart(t.layout(fig, 430, f"Em aberto: {t.fmt(g['Em aberto'].sum())} · Cumprido: {t.fmt(g['Cumprido'].sum())}"),
+                    use_container_width=True, key=key)
+
+
 def _tab_beneficios(df, ini, fim):
-    cards = [("Indeferido", G_INDEFERIDO, t.ATRASADO), ("Pré-Acordo", G_PRE_ACORDO, t.CORES["azul"]),
-             ("Acordo Agendado", G_ACORDO_AGENDADO, t.CORES["roxo"]), ("Acordo Realizado", G_ACORDO_REALIZADO, t.CUMPRIDO)]
-    cols = st.columns(2)
-    for i, (nome, subs, cor) in enumerate(cards):
-        ab, cu = _ab_cump(df, subs, ini, fim)
-        cols[i % 2].markdown(_card_desfecho(nome, ab, cu, cor), unsafe_allow_html=True)
-    _consolidado(df, G_DEFERIDOS, LABELS_DEF, ini, fim, "Deferidos (consolidado)", "def")
+    _por_unidade_ac(df, G_INDEFERIDO, "Indeferido — por unidade", ini, fim, "b_ind")
+    _por_unidade_ac(df, G_DEFERIDOS, "Deferidos (consolidado) — por unidade", ini, fim, "b_def")
+    _por_unidade_ac(df, G_PRE_ACORDO, "Pré-Acordo — por unidade", ini, fim, "b_pre")
+    _por_unidade_ac(df, G_ACORDO_AGENDADO, "Acordo Agendado — por unidade", ini, fim, "b_aga")
+    _por_unidade_ac(df, G_ACORDO_REALIZADO, "Acordo Realizado — por unidade", ini, fim, "b_are")
 
 
 def _tab_alvara(df, ini, fim):
-    _consolidado(df, G_ALVARA, LABELS_ALV, ini, fim, "Alvará (consolidado)", "alv")
-    t.secao("Levantamento e pagamento ao cliente")
-    cols = st.columns(3)
+    _por_unidade_ac(df, G_ALVARA, "Alvará (consolidado) — por unidade", ini, fim, "a_alv")
     for i, (sub, label, cor) in enumerate(SINGLES_ALV):
-        ab, cu = _ab_cump(df, [sub], ini, fim)
-        cols[i % 3].markdown(_card_desfecho(label, ab, cu, cor), unsafe_allow_html=True)
+        _por_unidade_ac(df, [sub], f"{label} — por unidade", ini, fim, f"a_sing{i}")
 
 
 def render(df_f, df_metas_f, ano, mes):
