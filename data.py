@@ -74,11 +74,7 @@ def _select_cols(view: str) -> str:
     return "*" if not cols else ",".join(cols)
 
 
-# cache_resource = UMA cópia compartilhada na memória (não duplica a base a cada
-# rerun como o cache_data faz). Menos memória e sem custo de cópia por clique →
-# trocar de menu fica rápido. IMPORTANTE: tratar o DataFrame como somente-leitura
-# (as páginas já fazem .copy() antes de alterar).
-@st.cache_resource(ttl=300, show_spinner="Carregando dados do LegalOne…")
+@st.cache_data(ttl=300, show_spinner=False)
 def carregar_view(view: str, lote: int = 1000) -> pd.DataFrame:
     sb = get_supabase()
     sel = _select_cols(view)
@@ -110,16 +106,15 @@ def _normalizar(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+@st.cache_data(ttl=300, show_spinner="Carregando dados do LegalOne…")
 def carregar_tudo():
-    # sem cache próprio: apenas devolve as referências dos DataFrames já
-    # cacheados em carregar_view (cache_resource), sem copiar nada.
     tasks = carregar_view("vw_tasks_completa")
     metas = carregar_view("vw_v360_metas_vs_meta")
     colabs = carregar_view("vw_v360_colaboradores")
     return tasks, metas, colabs
 
 
-@st.cache_resource(ttl=300, show_spinner=False)
+@st.cache_data(ttl=300, show_spinner=False)
 def carregar_compromissos():
     """Audiências/perícias JUD. View pequena → select *; remove campos sensíveis.
     Retorna DataFrame vazio se a view não existir/der erro."""
