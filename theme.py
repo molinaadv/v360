@@ -151,10 +151,17 @@ def injetar_css():
             transition: transform .15s, border-color .15s, box-shadow .15s; }}
         .tvcard:hover {{ transform: translateY(-2px); border-color: var(--accent);
             box-shadow: 0 14px 36px rgba(91,140,255,.20); }}
-        .tvbtn {{ margin-top: 16px; text-align: center; background: #ffffff;
-            border: 1px solid #ffffff; border-radius: 12px; padding: 11px 12px;
-            color: #0b1220; font-weight: 800; font-size: 14px; }}
-        .tvcard:hover .tvbtn {{ background: #e9f0ff; border-color: #e9f0ff; color: #0b1220; }}
+        /* nome branco (o Streamlit pinta link de azul — forçamos branco) */
+        .tvcard-title {{ font-weight: 900; text-align: center;
+            font-size: clamp(18px,1.5vw,22px); color: #ffffff !important; }}
+        .tvcard-sub {{ text-align: center; margin-top: 6px; font-size: 13px;
+            color: var(--muted) !important; }}
+        /* botão no azul-escuro do fundo da página */
+        .tvbtn {{ margin-top: 16px; text-align: center; background: var(--bg);
+            border: 1px solid var(--accent); border-radius: 12px; padding: 11px 12px;
+            color: #ffffff !important; font-weight: 800; font-size: 14px; }}
+        .tvcard:hover .tvbtn {{ background: var(--accent); border-color: var(--accent);
+            color: #0b1220 !important; }}
 
         /* -------- NOTAS / ALERTAS -------- */
         .nota {{ border-radius: 14px; padding: 12px 16px; margin: 6px 0; font-size: 14px;
