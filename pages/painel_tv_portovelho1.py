@@ -455,7 +455,7 @@ def _montar_dados(df: pd.DataFrame, hoje: date,
         "mesMetaLabel": mes_meta,
         "segundosPorTela": [25, 30, 30, 20, 22, 22, 20, 25],
         "minutosAtualizacao": MINUTOS_SYNC,
-        "fonteDados": "Legal One API", "atualizarSupabaseMin": 0,
+        "fonteDados": "Legal One API v2", "atualizarSupabaseMin": 0,
     }
 
 
