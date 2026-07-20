@@ -317,6 +317,9 @@ section[data-screen="1"] .card-head .emj{font-size:clamp(24px,2vw,40px)}
 .mp-bar{height:18px;border-radius:10px;background:rgba(255,255,255,.08);overflow:hidden}
 .mp-fill{height:100%;border-radius:10px;transition:width .6s ease}
 .mp-val{font-size:clamp(16px,1.3vw,28px);font-weight:800;min-width:100px;text-align:right}
+.mp-count{font-size:clamp(30px,3.1vw,66px);font-weight:900;line-height:1;text-align:left;font-variant-numeric:tabular-nums}
+.mp-total{border-top:2px solid rgba(255,255,255,.14);margin-top:6px}
+.mp-total .mp-uni{color:#9fb2c9;letter-spacing:.06em}
 /* ===== TELAS 5/6 · PENDÊNCIAS (destaque URGENTE) ===== */
 .card.urgente{border-color:rgba(255,77,94,.55);
   box-shadow:0 0 0 1px rgba(255,77,94,.18) inset,0 18px 40px -28px #000}
@@ -655,26 +658,28 @@ function renderMetas(){
 function renderMetaPastas(){
   const box = document.getElementById("metaPastas");
   if(!box) return;
-  const M = DADOS.metasPastas || [];
+  // Contagem pura (sem meta) — quinzenal ou mensal (definido no .py).
+  const D = DADOS.pastasContagem || {areas:[],rotulo:"",totalAbertas:0,totalEnviadas:0};
   const head = document.getElementById("mpHead");
-  if(head) head.textContent = `Meta ${DADOS.mesMetaLabel||""} · Pastas · Núcleo Porto Velho`;
-  const cor = p => p>=100 ? "#33d18a" : (p>=70 ? "#ffb020" : "#ff5a6a");
-  const metrica = (lab,g)=>{
-    if(!g.tem){
-      return `<div class="mp-metric"><div class="mp-lab">${lab}</div>
-        <div class="mp-bar"><div class="mp-fill" style="width:0%"></div></div>
-        <div class="mp-val" style="color:#54637a">sem meta</div></div>`;
-    }
-    const w = Math.min(100, g.pct);
-    return `<div class="mp-metric"><div class="mp-lab">${lab}</div>
-      <div class="mp-bar"><div class="mp-fill" style="width:${w}%;background:${cor(g.pct)}"></div></div>
-      <div class="mp-val" style="color:${cor(g.pct)}">${g.pct}%</div></div>`;
-  };
-  box.innerHTML = M.map(u=>`
+  if(head) head.textContent = `Pastas · ${D.rotulo||""} · Núcleo Porto Velho`;
+  const metrica = (lab,val,cor)=>`
+    <div class="mp-metric" style="grid-template-columns:150px auto 1fr">
+      <div class="mp-lab">${lab}</div>
+      <div class="mp-count" style="color:${cor}">${nf(val||0)}</div>
+      <div></div>
+    </div>`;
+  const ABc = "#f5a524", ENc = "#2fce8f";
+  const linhas = (D.areas||[]).map(u=>`
     <div class="mp-row">
       <div class="mp-uni">${u.unidade}</div>
-      <div class="mp-metrics">${metrica("Abertas",u.abertas)}${metrica("Enviadas",u.enviadas)}</div>
+      <div class="mp-metrics">${metrica("Abertas",u.abertas,ABc)}${metrica("Enviadas",u.enviadas,ENc)}</div>
     </div>`).join("");
+  const total = `
+    <div class="mp-row mp-total">
+      <div class="mp-uni">TOTAL</div>
+      <div class="mp-metrics">${metrica("Abertas",D.totalAbertas,ABc)}${metrica("Enviadas",D.totalEnviadas,ENc)}</div>
+    </div>`;
+  box.innerHTML = linhas + total;
 }
 
 /* ===================== TELAS 5/6 · PENDÊNCIAS ===================== */
@@ -722,18 +727,18 @@ function renderPendUnidade(){
 }
 /* ===================== TELA 7 · PASTAS ABERTAS ===================== */
 function renderPastas(){
-  const D=DADOS.pastasAbertas||{areas:[],totalSemana:0,totalMes:0};
+  const D=DADOS.pastasAbertas||{areas:[],labelA:"Semana",labelB:"Mês",totalA:0,totalB:0};
   const g=document.getElementById("pastasTop"); if(!g) return;
   g.style.gridTemplateColumns="repeat("+Math.max(1,D.areas.length)+",1fr)";
   g.innerHTML=D.areas.map(a=>`
     <div class="pcard"><div class="head"><span class="emj">📂</span><span class="ttl">${a.nome}</span></div>
       <div class="ptwo">
-        <div class="pcell semana"><span class="l">Semana</span><span class="n num">${nf(a.semana)}</span></div>
-        <div class="pcell mes"><span class="l">Mês</span><span class="n num">${nf(a.mes)}</span></div>
+        <div class="pcell semana"><span class="l">${D.labelA}</span><span class="n num">${nf(a.a)}</span></div>
+        <div class="pcell mes"><span class="l">${D.labelB}</span><span class="n num">${nf(a.b)}</span></div>
       </div></div>`).join("");
   document.getElementById("pastasTot").innerHTML=`
-    <div class="tot"><div class="th"><span class="l">Total da Semana</span></div><div class="n v-cyan">${nf(D.totalSemana)}</div></div>
-    <div class="tot"><div class="th"><span class="l">Total do Mês</span></div><div class="n v-green">${nf(D.totalMes)}</div></div>`;
+    <div class="tot"><div class="th"><span class="l">Total · ${D.labelA}</span></div><div class="n v-cyan">${nf(D.totalA)}</div></div>
+    <div class="tot"><div class="th"><span class="l">Total · ${D.labelB}</span></div><div class="n v-green">${nf(D.totalB)}</div></div>`;
 }
 
 function renderTudo(){ renderSetor(); renderSemana(); renderMes(); renderMetas();
@@ -744,7 +749,7 @@ setProxima(); renderTudo(); carimbar(); tick(); setInterval(tick,1000);
 /* ===================== ROTAÇÃO ===================== */
 const screens=[...document.querySelectorAll(".screen")].slice(0,8);
 const dots=[...document.querySelectorAll(".dp")].slice(0,8);
-const titulos=[ (DADOS.setor.titulo||"Geral").toUpperCase(), ((DADOS.setor2&&DADOS.setor2.titulo)||"Agenda da Semana").toUpperCase(), ((DADOS.setor3&&DADOS.setor3.titulo)||"Agenda do Mês").toUpperCase(), "PRODUTIVIDADE DO MÊS", "PENDÊNCIAS POR SUBTIPO", "PENDÊNCIAS POR UNIDADE", "PASTAS ABERTAS", "META DO MÊS · PASTAS" ];
+const titulos=[ (DADOS.setor.titulo||"Geral").toUpperCase(), ((DADOS.setor2&&DADOS.setor2.titulo)||"Agenda da Semana").toUpperCase(), ((DADOS.setor3&&DADOS.setor3.titulo)||"Agenda do Mês").toUpperCase(), "PRODUTIVIDADE DO MÊS", "PENDÊNCIAS POR SUBTIPO", "PENDÊNCIAS POR UNIDADE", "PASTAS ABERTAS", "PASTAS · CONTAGEM" ];
 let idx=0,pausado=false,t0=0;  // rodízio tela 1 <-> tela 2
 const DUR=()=>{const s=DADOS.segundosPorTela; return ((Array.isArray(s)?s[idx]:s)||16)*1000;};
 function animaGauge(){const p=document.getElementById("gaugeProg");requestAnimationFrame(()=>p.style.strokeDashoffset=gaugeOffset);}
