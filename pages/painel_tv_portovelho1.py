@@ -483,26 +483,46 @@ def _pend_por_unidade_nome(dfp: pd.DataFrame, hoje: date):
     return out
 
 
-def _pastas_abertas(dfp: pd.DataFrame, hoje: date) -> dict:
-    """Tela 7 — pastas abertas (Enviado p/ Análise* cumpridas) por unidade,
-    contadas por data_conclusao: Semana (segunda→hoje) e Mês (1º→hoje)."""
-    H = pd.Timestamp(hoje)
-    ini_sem = hoje - dt.timedelta(days=hoje.weekday())      # segunda
-    S = pd.Timestamp(ini_sem)
-    M = pd.Timestamp(date(hoje.year, hoje.month, 1))
-    base = dfp[(dfp["subtipo_nome"].isin(SUB_PASTAS)) &
-               (dfp["status_nome"] == "Cumprido")]
-    dc = _dias(base, "data_conclusao")
-    areas, tot_s, tot_m = [], 0, 0
+def _pastas_abertas(df_pastas: pd.DataFrame, hoje: date, periodo: str) -> dict:
+    """Tela 7 — pastas ABERTAS (definição oficial: indicador 'Pastas abertas'
+    + status Cumprido), contadas por data_conclusao em São Paulo (= view de
+    metas / LegalOne). Duas colunas conforme o período:
+      periodo="quinzena": 1ª Quinzena (1–15) e 2ª Quinzena (16–fim do mês).
+      periodo="mes":      Semana (segunda→hoje) e Mês (1º→hoje)."""
+    cols = ["unidade_principal", "indicador_meta", "status_nome",
+            "data_conclusao", "creation_date"]
+    dfp = df_pastas if (df_pastas is not None and not df_pastas.empty) \
+          else pd.DataFrame(columns=cols)
+    ab = dfp[(dfp["indicador_meta"] == "Pastas abertas") &
+             (dfp["status_nome"] == "Cumprido")]
+    dc = _dias_sp(ab, "data_conclusao")
+
+    if periodo == "quinzena":
+        iniA = pd.Timestamp(date(hoje.year, hoje.month, 1))
+        fimA = pd.Timestamp(date(hoje.year, hoje.month, 15))
+        iniB = pd.Timestamp(date(hoje.year, hoje.month, 16))
+        if hoje.month == 12:
+            fimB = pd.Timestamp(date(hoje.year, 12, 31))
+        else:
+            fimB = pd.Timestamp(date(hoje.year, hoje.month + 1, 1) - dt.timedelta(days=1))
+        labelA, labelB = "1ª Quinzena", "2ª Quinzena"
+    else:
+        ini_sem = hoje - dt.timedelta(days=hoje.weekday())      # segunda
+        iniA, fimA = pd.Timestamp(ini_sem), pd.Timestamp(hoje)
+        iniB = pd.Timestamp(date(hoje.year, hoje.month, 1))
+        fimB = pd.Timestamp(hoje)
+        labelA, labelB = "Semana", "Mês"
+
+    areas, totA, totB = [], 0, 0
     for u in UNIDADES:
-        mu = (base["unidade_nome"] == u)
-        sem = int(((dc >= S) & (dc <= H) & mu).sum())
-        mes = int(((dc >= M) & (dc <= H) & mu).sum())
-        tot_s += sem
-        tot_m += mes
-        areas.append({"nome": UNI_CURTO.get(u, u), "semana": sem, "mes": mes})
-    return {"titulo": "Pastas Abertas", "areas": areas,
-            "totalSemana": tot_s, "totalMes": tot_m}
+        mu = (ab["unidade_principal"] == u)
+        a = int(((dc >= iniA) & (dc <= fimA) & mu).sum())
+        b = int(((dc >= iniB) & (dc <= fimB) & mu).sum())
+        totA += a
+        totB += b
+        areas.append({"nome": UNI_CURTO.get(u, u), "a": a, "b": b})
+    return {"titulo": "Pastas Abertas", "labelA": labelA, "labelB": labelB,
+            "areas": areas, "totalA": totA, "totalB": totB}
 
 
 def _montar_dados(df: pd.DataFrame, hoje: date,
@@ -531,7 +551,7 @@ def _montar_dados(df: pd.DataFrame, hoje: date,
                          "areas": _pend_por_subtipo(df_pend, hoje)},
         "pendUnidade":  {"titulo": "Pendências por Unidade",
                          "areas": _pend_por_unidade_nome(df_pend, hoje)},
-        "pastasAbertas": _pastas_abertas(df_pend, hoje),
+        "pastasAbertas": _pastas_abertas(df_pastas, hoje, PERIODO_PASTAS),
         # Tela 8 — CONTAGEM de pastas Abertas/Enviadas (quinzena|mês, sem meta)
         "pastasContagem": _pastas_contagem(df_pastas, hoje, PERIODO_PASTAS),
         # (metasPastas mantido p/ compatibilidade; não é mais renderizado)
