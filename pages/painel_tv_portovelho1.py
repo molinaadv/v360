@@ -494,6 +494,12 @@ def _clientes_map(sb, df) -> dict:
 @st.cache_data(ttl=MINUTOS_SYNC * 60, show_spinner=False)
 def carregar_dados(scope_key) -> dict:
     sb = _sb()
+    # === EVENTOS = TAREFAS (Perícia ADM / Aval. Social ADM) +
+    #     COMPROMISSOS (Perícia JUD / Audiência) ============================
+    # Audiência e Perícia JUD são COMPROMISSOS -> vw_compromissos_completa.
+    # Perícia ADM / Avaliação Social ADM são TAREFAS -> vw_tasks_completa.
+
+    # 1) TAREFAS
     registros, ini = [], 0
     while True:
         resp = (sb.table("vw_tasks_completa").select("*")
@@ -504,25 +510,52 @@ def carregar_dados(scope_key) -> dict:
         if len(dados) < 1000:
             break
         ini += 1000
+    df_task = pd.DataFrame(registros)
 
-    df = pd.DataFrame(registros)
-    if df.empty:
+    # 2) COMPROMISSOS (só os subtipos de Perícia JUD e Audiência)
+    SUB_COMP = [s for s in SUBTIPOS
+                if s.startswith("Perícia JUD") or s.startswith("Audiência")]
+    regc, inic = [], 0
+    while True:
+        rc = (sb.table("vw_compromissos_completa").select("*")
+                .in_("subtipo_nome", SUB_COMP)
+                .range(inic, inic + 999).execute())
+        dcp = rc.data or []
+        regc.extend(dcp)
+        if len(dcp) < 1000:
+            break
+        inic += 1000
+    df_comp = pd.DataFrame(regc)
+
+    # 3) cliente de cada fonte + juntar tudo numa base só
+    frames = []
+    if not df_task.empty:
+        _cli = _clientes_map(sb, df_task)               # tarefas: join participantes
+        if "lawsuit_id" in df_task.columns:
+            df_task["cliente"] = df_task["lawsuit_id"].map(
+                lambda x: _cli.get(int(x)) if pd.notna(x) else None)
+        else:
+            df_task["cliente"] = None
+        frames.append(df_task)
+    if not df_comp.empty:
+        # compromisso não tem effective_end -> data_conclusao = end_datetime se Cumprido
+        df_comp["data_conclusao"] = df_comp["end_datetime"].where(
+            df_comp["status_nome"] == "Cumprido")
+        df_comp["cliente"] = df_comp["cliente_nome"]    # já vem pronto na view
+        frames.append(df_comp)
+
+    if frames:
+        df = pd.concat(frames, ignore_index=True)
+        cls = df["subtipo_nome"].apply(_classifica)
+        df["unidade_calc"] = cls.apply(lambda t: t[0])
+        df["categoria"]    = cls.apply(lambda t: t[1])
+        df = df[df["categoria"].notna()]     # só eventos das unidades configuradas
+    else:
         df = pd.DataFrame(columns=["subtipo_nome", "status_nome",
                                    COL_EVENTO, "data_conclusao", "lawsuit_id"])
         df["unidade_calc"] = pd.Series(dtype=object)
         df["categoria"]    = pd.Series(dtype=object)
         df["cliente"]      = pd.Series(dtype=object)
-    else:
-        cls = df["subtipo_nome"].apply(_classifica)
-        df["unidade_calc"] = cls.apply(lambda t: t[0])
-        df["categoria"]    = cls.apply(lambda t: t[1])
-        df = df[df["categoria"].notna()]     # só eventos das unidades configuradas
-        _cli = _clientes_map(sb, df)
-        if "lawsuit_id" in df.columns:
-            df["cliente"] = df["lawsuit_id"].map(
-                lambda x: _cli.get(int(x)) if pd.notna(x) else None)
-        else:
-            df["cliente"] = None
 
     # --- Tela 5: meta de pastas Abertas/Enviadas das 5 unidades ---
     metas = pd.DataFrame(
