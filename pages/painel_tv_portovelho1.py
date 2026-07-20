@@ -68,7 +68,7 @@ INCLUIR_EXIGENCIA = False
 
 # Exigências que DEVEM entrar no dashboard, mesmo com INCLUIR_EXIGENCIA=False
 # (exceção à regra "exigência = prazo"). Contadas na categoria do seu prefixo.
-EXIGENCIA_OK = ["Avaliação Social ADM Exigência"]
+EXIGENCIA_OK = ["Avaliação Social ADM Exigência", "Perícia ADM Exigência"]
 
 # Categorias de EVENTO (o que o painel conta), por prefixo do subtipo.
 # Ordem = mais específico primeiro (ex.: "Avaliação Social ADM" antes de
