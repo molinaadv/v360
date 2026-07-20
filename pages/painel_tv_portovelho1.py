@@ -35,6 +35,12 @@ from supabase import create_client
 MINUTOS_SYNC = 5
 ALTURA_TV    = 1040
 
+# >>> CONTABILIZAÇÃO DE PASTAS (Tela 8) — só do núcleo Porto Velho <<<
+# "quinzena" = dia 1–15 (1ª) e 16–fim do mês (2ª); mostra SÓ a contagem, sem meta.
+# "mes"      = mês inteiro (igual aos outros escritórios), também só contagem.
+# Para reverter ao mês, troque APENAS esta linha p/ "mes". Nada mais a mexer.
+PERIODO_PASTAS = "quinzena"
+
 # >>> COLUNA DA DATA DO EVENTO = CONCLUSÃO PREVISTA <<<
 # É a data que a Justiça informa para a audiência/perícia — no LegalOne é a
 # "Data final", que no banco é `end_datetime`. É por ela que se contabiliza:
@@ -171,6 +177,37 @@ def _dias(df: pd.DataFrame, col: str):
     if col not in df.columns:
         return pd.to_datetime(pd.Series([pd.NaT] * len(df), index=df.index))
     return _local(df[col]).dt.normalize()
+
+
+# A contagem de Pastas (Tela 8) ESPELHA a view oficial vw_v360_metas_vs_meta,
+# que agrupa por mês em America/Sao_Paulo (UTC-3). Mantemos o MESMO fuso só
+# aqui p/ o total do mês bater EXATAMENTE com a view/LegalOne. O resto do
+# painel usa Manaus/UTC-4 — esta é a única exceção, proposital, p/ reconciliar.
+_TZ_SP = dt.timezone(dt.timedelta(hours=-3))
+
+
+def _dias_sp(df: pd.DataFrame, col: str):
+    """Como _dias, mas em São Paulo (UTC-3) — casa com vw_v360_metas_vs_meta."""
+    if col not in df.columns:
+        return pd.to_datetime(pd.Series([pd.NaT] * len(df), index=df.index))
+    x = pd.to_datetime(df[col], errors="coerce")
+    if getattr(x.dt, "tz", None) is not None:
+        x = x.dt.tz_convert(_TZ_SP).dt.tz_localize(None)
+    return x.dt.normalize()
+
+
+def _quinzena_janela(hoje: date):
+    """(inicio, fim) da quinzena vigente. 1ª: dia 1–15; 2ª: dia 16–fim do mês."""
+    if hoje.day <= 15:
+        ini = date(hoje.year, hoje.month, 1)
+        fim = date(hoje.year, hoje.month, 15)
+    else:
+        ini = date(hoje.year, hoje.month, 16)
+        if hoje.month == 12:
+            fim = date(hoje.year, 12, 31)
+        else:
+            fim = date(hoje.year, hoje.month + 1, 1) - dt.timedelta(days=1)
+    return pd.Timestamp(ini), pd.Timestamp(fim)
 
 
 def _classifica(subtipo):
@@ -366,6 +403,50 @@ def _metas_pastas(df_metas):
     return saida
 
 
+def _pastas_contagem(df_pastas: pd.DataFrame, hoje: date, periodo: str) -> dict:
+    """Tela 8 — SÓ contagem de pastas Abertas/Enviadas por unidade (sem meta).
+       periodo="quinzena": 1–15 (1ª) ou 16–fim (2ª);  "mes": mês inteiro.
+       abertas  = indicador_meta 'Pastas abertas'  + Cumprido, por data_conclusao.
+       enviadas = indicador_meta 'Pastas enviadas',           por creation_date.
+       Datas em São Paulo (_dias_sp) -> bate com vw_v360_metas_vs_meta.
+       No mês, o total DEVE coincidir com abertas_realizadas/enviadas_realizadas
+       da view oficial (a quinzena é um subconjunto dele)."""
+    if periodo == "quinzena":
+        ini, fim = _quinzena_janela(hoje)
+        ordem = "1ª" if hoje.day <= 15 else "2ª"
+        rotulo = f"{ordem} Quinzena · {ini.day:02d}–{fim.day:02d}/{hoje.month:02d}"
+    else:
+        J = _janelas(hoje)
+        ini, fim = J["IM"], J["FM"]
+        _MES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho',
+                'Agosto','Setembro','Outubro','Novembro','Dezembro']
+        rotulo = f"Mês · {_MES[hoje.month-1]}/{hoje.year}"
+
+    cols = ["unidade_principal", "indicador_meta", "status_nome",
+            "data_conclusao", "creation_date"]
+    dfp = df_pastas if (df_pastas is not None and not df_pastas.empty) \
+          else pd.DataFrame(columns=cols)
+
+    ab = dfp[(dfp["indicador_meta"] == "Pastas abertas") &
+             (dfp["status_nome"] == "Cumprido")]
+    en = dfp[dfp["indicador_meta"] == "Pastas enviadas"]
+    ab_dc = _dias_sp(ab, "data_conclusao")
+    en_cd = _dias_sp(en, "creation_date")
+
+    areas, tot_a, tot_e = [], 0, 0
+    for u in UNIDADES:
+        na = int(((ab["unidade_principal"] == u) &
+                  (ab_dc >= ini) & (ab_dc <= fim)).sum())
+        ne = int(((en["unidade_principal"] == u) &
+                  (en_cd >= ini) & (en_cd <= fim)).sum())
+        tot_a += na
+        tot_e += ne
+        areas.append({"unidade": UNI_CURTO.get(u, u),
+                      "abertas": na, "enviadas": ne})
+    return {"titulo": "Pastas · Contagem", "rotulo": rotulo, "periodo": periodo,
+            "areas": areas, "totalAbertas": tot_a, "totalEnviadas": tot_e}
+
+
 def _pend_numeros(sub: pd.DataFrame, hoje: date) -> dict:
     """Os 6 números de um recorte de pendências (por subtipo OU por unidade)."""
     H = pd.Timestamp(hoje)
@@ -425,7 +506,8 @@ def _pastas_abertas(dfp: pd.DataFrame, hoje: date) -> dict:
 
 
 def _montar_dados(df: pd.DataFrame, hoje: date,
-                  df_metas=None, mes_meta: str = "", df_pend=None) -> dict:
+                  df_metas=None, mes_meta: str = "", df_pend=None,
+                  df_pastas=None) -> dict:
     if df_pend is None:
         df_pend = pd.DataFrame(columns=["subtipo_nome", "unidade_nome",
                                         "status_nome", "deadline", "data_conclusao"])
@@ -450,7 +532,9 @@ def _montar_dados(df: pd.DataFrame, hoje: date,
         "pendUnidade":  {"titulo": "Pendências por Unidade",
                          "areas": _pend_por_unidade_nome(df_pend, hoje)},
         "pastasAbertas": _pastas_abertas(df_pend, hoje),
-        # Tela 8 — meta de pastas Abertas/Enviadas
+        # Tela 8 — CONTAGEM de pastas Abertas/Enviadas (quinzena|mês, sem meta)
+        "pastasContagem": _pastas_contagem(df_pastas, hoje, PERIODO_PASTAS),
+        # (metasPastas mantido p/ compatibilidade; não é mais renderizado)
         "metasPastas":  _metas_pastas(df_metas),
         "mesMetaLabel": mes_meta,
         "segundosPorTela": [25, 30, 30, 20, 22, 22, 20, 25],
@@ -586,7 +670,26 @@ def carregar_dados(scope_key) -> dict:
         df_pend = pd.DataFrame(columns=["subtipo_nome", "unidade_nome",
                                         "status_nome", "deadline", "data_conclusao"])
 
-    return _montar_dados(df, date.today(), metas, mes_meta, df_pend)
+    # --- Tela 8: PASTAS p/ CONTAGEM (quinzena|mês) ---
+    # Espelha vw_v360_metas_vs_meta: entra_meta=true + indicador_meta em
+    # ('Pastas abertas','Pastas enviadas'), pelas 5 unidades (unidade_principal).
+    reg3, ini3 = [], 0
+    while True:
+        r3 = (sb.table("vw_tasks_completa")
+                .select("unidade_principal,indicador_meta,entra_meta,"
+                        "status_nome,data_conclusao,creation_date")
+                .eq("entra_meta", True)
+                .in_("indicador_meta", ["Pastas abertas", "Pastas enviadas"])
+                .in_("unidade_principal", UNIDADES)
+                .range(ini3, ini3 + 999).execute())
+        d3 = r3.data or []
+        reg3.extend(d3)
+        if len(d3) < 1000:
+            break
+        ini3 += 1000
+    df_pastas = pd.DataFrame(reg3)
+
+    return _montar_dados(df, date.today(), metas, mes_meta, df_pend, df_pastas)
 
 
 # ======================================================================
