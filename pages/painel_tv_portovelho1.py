@@ -35,20 +35,6 @@ from supabase import create_client
 MINUTOS_SYNC = 5
 ALTURA_TV    = 1040
 
-# >>> CONTABILIZAÇÃO DE PASTAS (Tela 8) — só do núcleo Porto Velho <<<
-# "quinzena" = dia 1–15 (1ª) e 16–fim do mês (2ª); mostra SÓ a contagem, sem meta.
-# "mes"      = mês inteiro (igual aos outros escritórios), também só contagem.
-# Para reverter ao mês, troque APENAS esta linha p/ "mes". Nada mais a mexer.
-PERIODO_PASTAS = "quinzena"
-
-# >>> DEFINIÇÃO DA CONTAGEM DE PASTAS <<<
-# "legalone" = espelha o filtro do LegalOne ("Enviado p/ Análise*"): subtipos
-#              crus (inclui "Cível" nas abertas), SÓ Cumprido p/ abertas, SEM
-#              filtro de meta. É o número que você vê no LegalOne (PV1 = 50).
-# "oficial"  = espelha a view vw_v360_metas_vs_meta: indicador_meta +
-#              entra_meta=true (só 2 subtipos nas abertas). Número menor (PV1 = 45).
-DEFINICAO_PASTAS = "legalone"
-
 # >>> COLUNA DA DATA DO EVENTO = CONCLUSÃO PREVISTA <<<
 # É a data que a Justiça informa para a audiência/perícia — no LegalOne é a
 # "Data final", que no banco é `end_datetime`. É por ela que se contabiliza:
@@ -131,19 +117,11 @@ _EMJ_PEND = {
     "Pendência na Confecção": "📁",
     "URGENTE - Solicitação de Documentos": "🚨",
 }
-# Pastas ABERTAS = subtipos "Enviado p/ Análise*" CUMPRIDOS, por data_conclusao.
-# Contamos SÓ 2 subtipos (ADM + Análise) — igual ao relatório do LegalOne que o
-# escritório usa como referência. O "Enviado p/ Análise Cível" NÃO entra.
-# >>> Para voltar a incluir o Cível, descomente a 3ª linha abaixo. <<<
+# Pastas abertas = subtipos "Enviado p/ Análise*" CUMPRIDOS, por data_conclusao.
 SUB_PASTAS = [
     "Enviado p/ Análise ADM",
     "Enviado p/ Análise",
-    # "Enviado p/ Análise Cível",
-]
-# Pastas ENVIADAS = subtipos abaixo, por creation_date (= indicador "Pastas enviadas").
-SUB_ENVIADAS = [
-    "Enviada p/ Confecção",
-    "Benefício ADM - Deferido",
+    "Enviado p/ Análise Cível",
 ]
 
 _UNIT_RE = re.compile(r"\(([^)]+)\)")
@@ -193,37 +171,6 @@ def _dias(df: pd.DataFrame, col: str):
     if col not in df.columns:
         return pd.to_datetime(pd.Series([pd.NaT] * len(df), index=df.index))
     return _local(df[col]).dt.normalize()
-
-
-# A contagem de Pastas (Tela 8) ESPELHA a view oficial vw_v360_metas_vs_meta,
-# que agrupa por mês em America/Sao_Paulo (UTC-3). Mantemos o MESMO fuso só
-# aqui p/ o total do mês bater EXATAMENTE com a view/LegalOne. O resto do
-# painel usa Manaus/UTC-4 — esta é a única exceção, proposital, p/ reconciliar.
-_TZ_SP = dt.timezone(dt.timedelta(hours=-3))
-
-
-def _dias_sp(df: pd.DataFrame, col: str):
-    """Como _dias, mas em São Paulo (UTC-3) — casa com vw_v360_metas_vs_meta."""
-    if col not in df.columns:
-        return pd.to_datetime(pd.Series([pd.NaT] * len(df), index=df.index))
-    x = pd.to_datetime(df[col], errors="coerce")
-    if getattr(x.dt, "tz", None) is not None:
-        x = x.dt.tz_convert(_TZ_SP).dt.tz_localize(None)
-    return x.dt.normalize()
-
-
-def _quinzena_janela(hoje: date):
-    """(inicio, fim) da quinzena vigente. 1ª: dia 1–15; 2ª: dia 16–fim do mês."""
-    if hoje.day <= 15:
-        ini = date(hoje.year, hoje.month, 1)
-        fim = date(hoje.year, hoje.month, 15)
-    else:
-        ini = date(hoje.year, hoje.month, 16)
-        if hoje.month == 12:
-            fim = date(hoje.year, 12, 31)
-        else:
-            fim = date(hoje.year, hoje.month + 1, 1) - dt.timedelta(days=1)
-    return pd.Timestamp(ini), pd.Timestamp(fim)
 
 
 def _classifica(subtipo):
@@ -419,62 +366,6 @@ def _metas_pastas(df_metas):
     return saida
 
 
-_PASTAS_COLS = ["unidade_principal", "subtipo_nome", "indicador_meta",
-                "entra_meta", "status_nome", "data_conclusao", "creation_date"]
-
-
-def _pastas_split(df_pastas: pd.DataFrame):
-    """(abertas, enviadas) conforme DEFINICAO_PASTAS.
-       "legalone": subtipos crus; abertas só Cumprido; sem filtro de meta.
-       "oficial":  indicador_meta + entra_meta=true (= vw_v360_metas_vs_meta)."""
-    dfp = df_pastas if (df_pastas is not None and not df_pastas.empty) \
-          else pd.DataFrame(columns=_PASTAS_COLS)
-    if DEFINICAO_PASTAS == "oficial":
-        ab = dfp[(dfp["indicador_meta"] == "Pastas abertas") &
-                 (dfp["entra_meta"] == True) &                       # noqa: E712
-                 (dfp["status_nome"] == "Cumprido")]
-        en = dfp[(dfp["indicador_meta"] == "Pastas enviadas") &
-                 (dfp["entra_meta"] == True)]                        # noqa: E712
-    else:  # "legalone" (padrão) — espelha o filtro do LegalOne
-        ab = dfp[(dfp["subtipo_nome"].isin(SUB_PASTAS)) &
-                 (dfp["status_nome"] == "Cumprido")]
-        en = dfp[dfp["subtipo_nome"].isin(SUB_ENVIADAS)]
-    return ab, en
-
-
-def _pastas_contagem(df_pastas: pd.DataFrame, hoje: date, periodo: str) -> dict:
-    """Tela 8 — SÓ contagem de pastas Abertas/Enviadas por unidade (sem meta).
-       periodo="quinzena": 1–15 (1ª) ou 16–fim (2ª);  "mes": mês inteiro.
-       abertas por data_conclusao; enviadas por creation_date. Datas em SP."""
-    if periodo == "quinzena":
-        ini, fim = _quinzena_janela(hoje)
-        ordem = "1ª" if hoje.day <= 15 else "2ª"
-        rotulo = f"{ordem} Quinzena · {ini.day:02d}–{fim.day:02d}/{hoje.month:02d}"
-    else:
-        J = _janelas(hoje)
-        ini, fim = J["IM"], J["FM"]
-        _MES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho',
-                'Agosto','Setembro','Outubro','Novembro','Dezembro']
-        rotulo = f"Mês · {_MES[hoje.month-1]}/{hoje.year}"
-
-    ab, en = _pastas_split(df_pastas)
-    ab_dc = _dias_sp(ab, "data_conclusao")
-    en_cd = _dias_sp(en, "creation_date")
-
-    areas, tot_a, tot_e = [], 0, 0
-    for u in UNIDADES:
-        na = int(((ab["unidade_principal"] == u) &
-                  (ab_dc >= ini) & (ab_dc <= fim)).sum())
-        ne = int(((en["unidade_principal"] == u) &
-                  (en_cd >= ini) & (en_cd <= fim)).sum())
-        tot_a += na
-        tot_e += ne
-        areas.append({"unidade": UNI_CURTO.get(u, u),
-                      "abertas": na, "enviadas": ne})
-    return {"titulo": "Pastas · Contagem", "rotulo": rotulo, "periodo": periodo,
-            "areas": areas, "totalAbertas": tot_a, "totalEnviadas": tot_e}
-
-
 def _pend_numeros(sub: pd.DataFrame, hoje: date) -> dict:
     """Os 6 números de um recorte de pendências (por subtipo OU por unidade)."""
     H = pd.Timestamp(hoje)
@@ -511,45 +402,30 @@ def _pend_por_unidade_nome(dfp: pd.DataFrame, hoje: date):
     return out
 
 
-def _pastas_abertas(df_pastas: pd.DataFrame, hoje: date, periodo: str) -> dict:
-    """Tela 7 — pastas ABERTAS (definição em DEFINICAO_PASTAS; padrão "legalone"
-    = subtipos "Enviado p/ Análise*" Cumpridos), por data_conclusao em São Paulo.
-      periodo="quinzena": 1ª Quinzena (1–15) e 2ª Quinzena (16–fim do mês).
-      periodo="mes":      Semana (segunda→hoje) e Mês (1º→hoje)."""
-    ab, _ = _pastas_split(df_pastas)
-    dc = _dias_sp(ab, "data_conclusao")
-
-    if periodo == "quinzena":
-        iniA = pd.Timestamp(date(hoje.year, hoje.month, 1))
-        fimA = pd.Timestamp(date(hoje.year, hoje.month, 15))
-        iniB = pd.Timestamp(date(hoje.year, hoje.month, 16))
-        if hoje.month == 12:
-            fimB = pd.Timestamp(date(hoje.year, 12, 31))
-        else:
-            fimB = pd.Timestamp(date(hoje.year, hoje.month + 1, 1) - dt.timedelta(days=1))
-        labelA, labelB = "1ª Quinzena", "2ª Quinzena"
-    else:
-        ini_sem = hoje - dt.timedelta(days=hoje.weekday())      # segunda
-        iniA, fimA = pd.Timestamp(ini_sem), pd.Timestamp(hoje)
-        iniB = pd.Timestamp(date(hoje.year, hoje.month, 1))
-        fimB = pd.Timestamp(hoje)
-        labelA, labelB = "Semana", "Mês"
-
-    areas, totA, totB = [], 0, 0
+def _pastas_abertas(dfp: pd.DataFrame, hoje: date) -> dict:
+    """Tela 7 — pastas abertas (Enviado p/ Análise* cumpridas) por unidade,
+    contadas por data_conclusao: Semana (segunda→hoje) e Mês (1º→hoje)."""
+    H = pd.Timestamp(hoje)
+    ini_sem = hoje - dt.timedelta(days=hoje.weekday())      # segunda
+    S = pd.Timestamp(ini_sem)
+    M = pd.Timestamp(date(hoje.year, hoje.month, 1))
+    base = dfp[(dfp["subtipo_nome"].isin(SUB_PASTAS)) &
+               (dfp["status_nome"] == "Cumprido")]
+    dc = _dias(base, "data_conclusao")
+    areas, tot_s, tot_m = [], 0, 0
     for u in UNIDADES:
-        mu = (ab["unidade_principal"] == u)
-        a = int(((dc >= iniA) & (dc <= fimA) & mu).sum())
-        b = int(((dc >= iniB) & (dc <= fimB) & mu).sum())
-        totA += a
-        totB += b
-        areas.append({"nome": UNI_CURTO.get(u, u), "a": a, "b": b})
-    return {"titulo": "Pastas Abertas", "labelA": labelA, "labelB": labelB,
-            "areas": areas, "totalA": totA, "totalB": totB}
+        mu = (base["unidade_nome"] == u)
+        sem = int(((dc >= S) & (dc <= H) & mu).sum())
+        mes = int(((dc >= M) & (dc <= H) & mu).sum())
+        tot_s += sem
+        tot_m += mes
+        areas.append({"nome": UNI_CURTO.get(u, u), "semana": sem, "mes": mes})
+    return {"titulo": "Pastas Abertas", "areas": areas,
+            "totalSemana": tot_s, "totalMes": tot_m}
 
 
 def _montar_dados(df: pd.DataFrame, hoje: date,
-                  df_metas=None, mes_meta: str = "", df_pend=None,
-                  df_pastas=None) -> dict:
+                  df_metas=None, mes_meta: str = "", df_pend=None) -> dict:
     if df_pend is None:
         df_pend = pd.DataFrame(columns=["subtipo_nome", "unidade_nome",
                                         "status_nome", "deadline", "data_conclusao"])
@@ -573,15 +449,13 @@ def _montar_dados(df: pd.DataFrame, hoje: date,
                          "areas": _pend_por_subtipo(df_pend, hoje)},
         "pendUnidade":  {"titulo": "Pendências por Unidade",
                          "areas": _pend_por_unidade_nome(df_pend, hoje)},
-        "pastasAbertas": _pastas_abertas(df_pastas, hoje, PERIODO_PASTAS),
-        # Tela 8 — CONTAGEM de pastas Abertas/Enviadas (quinzena|mês, sem meta)
-        "pastasContagem": _pastas_contagem(df_pastas, hoje, PERIODO_PASTAS),
-        # (metasPastas mantido p/ compatibilidade; não é mais renderizado)
+        "pastasAbertas": _pastas_abertas(df_pend, hoje),
+        # Tela 8 — meta de pastas Abertas/Enviadas
         "metasPastas":  _metas_pastas(df_metas),
         "mesMetaLabel": mes_meta,
         "segundosPorTela": [25, 30, 30, 20, 22, 22, 20, 25],
         "minutosAtualizacao": MINUTOS_SYNC,
-        "fonteDados": "Legal One API v3", "atualizarSupabaseMin": 0,
+        "fonteDados": "Legal One API v2", "atualizarSupabaseMin": 0,
     }
 
 
@@ -712,27 +586,7 @@ def carregar_dados(scope_key) -> dict:
         df_pend = pd.DataFrame(columns=["subtipo_nome", "unidade_nome",
                                         "status_nome", "deadline", "data_conclusao"])
 
-    # --- Telas 7/8: PASTAS (abertas + enviadas) p/ contagem quinzena|mês ---
-    # Carrega SEM filtro de meta (por subtipo), pelas 5 unidades. As colunas
-    # indicador_meta/entra_meta vêm juntas p/ a definição "oficial" funcionar.
-    # A definição efetiva (legalone|oficial) é aplicada em _pastas_split().
-    SUB_PASTAS_ALL = SUB_PASTAS + SUB_ENVIADAS
-    reg3, ini3 = [], 0
-    while True:
-        r3 = (sb.table("vw_tasks_completa")
-                .select("unidade_principal,subtipo_nome,indicador_meta,"
-                        "entra_meta,status_nome,data_conclusao,creation_date")
-                .in_("subtipo_nome", SUB_PASTAS_ALL)
-                .in_("unidade_principal", UNIDADES)
-                .range(ini3, ini3 + 999).execute())
-        d3 = r3.data or []
-        reg3.extend(d3)
-        if len(d3) < 1000:
-            break
-        ini3 += 1000
-    df_pastas = pd.DataFrame(reg3)
-
-    return _montar_dados(df, date.today(), metas, mes_meta, df_pend, df_pastas)
+    return _montar_dados(df, date.today(), metas, mes_meta, df_pend)
 
 
 # ======================================================================
