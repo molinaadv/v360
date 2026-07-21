@@ -132,11 +132,13 @@ _EMJ_PEND = {
     "URGENTE - Solicitação de Documentos": "🚨",
 }
 # Pastas ABERTAS = subtipos "Enviado p/ Análise*" CUMPRIDOS, por data_conclusao.
-# (os 3 subtipos = exatamente o filtro "Enviado p/ Análise*" do LegalOne)
+# Contamos SÓ 2 subtipos (ADM + Análise) — igual ao relatório do LegalOne que o
+# escritório usa como referência. O "Enviado p/ Análise Cível" NÃO entra.
+# >>> Para voltar a incluir o Cível, descomente a 3ª linha abaixo. <<<
 SUB_PASTAS = [
     "Enviado p/ Análise ADM",
     "Enviado p/ Análise",
-    "Enviado p/ Análise Cível",
+    # "Enviado p/ Análise Cível",
 ]
 # Pastas ENVIADAS = subtipos abaixo, por creation_date (= indicador "Pastas enviadas").
 SUB_ENVIADAS = [
