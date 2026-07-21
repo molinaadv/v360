@@ -41,6 +41,14 @@ ALTURA_TV    = 1040
 # Para reverter ao mês, troque APENAS esta linha p/ "mes". Nada mais a mexer.
 PERIODO_PASTAS = "quinzena"
 
+# >>> DEFINIÇÃO DA CONTAGEM DE PASTAS <<<
+# "legalone" = espelha o filtro do LegalOne ("Enviado p/ Análise*"): subtipos
+#              crus (inclui "Cível" nas abertas), SÓ Cumprido p/ abertas, SEM
+#              filtro de meta. É o número que você vê no LegalOne (PV1 = 50).
+# "oficial"  = espelha a view vw_v360_metas_vs_meta: indicador_meta +
+#              entra_meta=true (só 2 subtipos nas abertas). Número menor (PV1 = 45).
+DEFINICAO_PASTAS = "legalone"
+
 # >>> COLUNA DA DATA DO EVENTO = CONCLUSÃO PREVISTA <<<
 # É a data que a Justiça informa para a audiência/perícia — no LegalOne é a
 # "Data final", que no banco é `end_datetime`. É por ela que se contabiliza:
@@ -123,11 +131,17 @@ _EMJ_PEND = {
     "Pendência na Confecção": "📁",
     "URGENTE - Solicitação de Documentos": "🚨",
 }
-# Pastas abertas = subtipos "Enviado p/ Análise*" CUMPRIDOS, por data_conclusao.
+# Pastas ABERTAS = subtipos "Enviado p/ Análise*" CUMPRIDOS, por data_conclusao.
+# (os 3 subtipos = exatamente o filtro "Enviado p/ Análise*" do LegalOne)
 SUB_PASTAS = [
     "Enviado p/ Análise ADM",
     "Enviado p/ Análise",
     "Enviado p/ Análise Cível",
+]
+# Pastas ENVIADAS = subtipos abaixo, por creation_date (= indicador "Pastas enviadas").
+SUB_ENVIADAS = [
+    "Enviada p/ Confecção",
+    "Benefício ADM - Deferido",
 ]
 
 _UNIT_RE = re.compile(r"\(([^)]+)\)")
@@ -403,14 +417,33 @@ def _metas_pastas(df_metas):
     return saida
 
 
+_PASTAS_COLS = ["unidade_principal", "subtipo_nome", "indicador_meta",
+                "entra_meta", "status_nome", "data_conclusao", "creation_date"]
+
+
+def _pastas_split(df_pastas: pd.DataFrame):
+    """(abertas, enviadas) conforme DEFINICAO_PASTAS.
+       "legalone": subtipos crus; abertas só Cumprido; sem filtro de meta.
+       "oficial":  indicador_meta + entra_meta=true (= vw_v360_metas_vs_meta)."""
+    dfp = df_pastas if (df_pastas is not None and not df_pastas.empty) \
+          else pd.DataFrame(columns=_PASTAS_COLS)
+    if DEFINICAO_PASTAS == "oficial":
+        ab = dfp[(dfp["indicador_meta"] == "Pastas abertas") &
+                 (dfp["entra_meta"] == True) &                       # noqa: E712
+                 (dfp["status_nome"] == "Cumprido")]
+        en = dfp[(dfp["indicador_meta"] == "Pastas enviadas") &
+                 (dfp["entra_meta"] == True)]                        # noqa: E712
+    else:  # "legalone" (padrão) — espelha o filtro do LegalOne
+        ab = dfp[(dfp["subtipo_nome"].isin(SUB_PASTAS)) &
+                 (dfp["status_nome"] == "Cumprido")]
+        en = dfp[dfp["subtipo_nome"].isin(SUB_ENVIADAS)]
+    return ab, en
+
+
 def _pastas_contagem(df_pastas: pd.DataFrame, hoje: date, periodo: str) -> dict:
     """Tela 8 — SÓ contagem de pastas Abertas/Enviadas por unidade (sem meta).
        periodo="quinzena": 1–15 (1ª) ou 16–fim (2ª);  "mes": mês inteiro.
-       abertas  = indicador_meta 'Pastas abertas'  + Cumprido, por data_conclusao.
-       enviadas = indicador_meta 'Pastas enviadas',           por creation_date.
-       Datas em São Paulo (_dias_sp) -> bate com vw_v360_metas_vs_meta.
-       No mês, o total DEVE coincidir com abertas_realizadas/enviadas_realizadas
-       da view oficial (a quinzena é um subconjunto dele)."""
+       abertas por data_conclusao; enviadas por creation_date. Datas em SP."""
     if periodo == "quinzena":
         ini, fim = _quinzena_janela(hoje)
         ordem = "1ª" if hoje.day <= 15 else "2ª"
@@ -422,14 +455,7 @@ def _pastas_contagem(df_pastas: pd.DataFrame, hoje: date, periodo: str) -> dict:
                 'Agosto','Setembro','Outubro','Novembro','Dezembro']
         rotulo = f"Mês · {_MES[hoje.month-1]}/{hoje.year}"
 
-    cols = ["unidade_principal", "indicador_meta", "status_nome",
-            "data_conclusao", "creation_date"]
-    dfp = df_pastas if (df_pastas is not None and not df_pastas.empty) \
-          else pd.DataFrame(columns=cols)
-
-    ab = dfp[(dfp["indicador_meta"] == "Pastas abertas") &
-             (dfp["status_nome"] == "Cumprido")]
-    en = dfp[dfp["indicador_meta"] == "Pastas enviadas"]
+    ab, en = _pastas_split(df_pastas)
     ab_dc = _dias_sp(ab, "data_conclusao")
     en_cd = _dias_sp(en, "creation_date")
 
@@ -484,17 +510,11 @@ def _pend_por_unidade_nome(dfp: pd.DataFrame, hoje: date):
 
 
 def _pastas_abertas(df_pastas: pd.DataFrame, hoje: date, periodo: str) -> dict:
-    """Tela 7 — pastas ABERTAS (definição oficial: indicador 'Pastas abertas'
-    + status Cumprido), contadas por data_conclusao em São Paulo (= view de
-    metas / LegalOne). Duas colunas conforme o período:
+    """Tela 7 — pastas ABERTAS (definição em DEFINICAO_PASTAS; padrão "legalone"
+    = subtipos "Enviado p/ Análise*" Cumpridos), por data_conclusao em São Paulo.
       periodo="quinzena": 1ª Quinzena (1–15) e 2ª Quinzena (16–fim do mês).
       periodo="mes":      Semana (segunda→hoje) e Mês (1º→hoje)."""
-    cols = ["unidade_principal", "indicador_meta", "status_nome",
-            "data_conclusao", "creation_date"]
-    dfp = df_pastas if (df_pastas is not None and not df_pastas.empty) \
-          else pd.DataFrame(columns=cols)
-    ab = dfp[(dfp["indicador_meta"] == "Pastas abertas") &
-             (dfp["status_nome"] == "Cumprido")]
+    ab, _ = _pastas_split(df_pastas)
     dc = _dias_sp(ab, "data_conclusao")
 
     if periodo == "quinzena":
@@ -690,16 +710,17 @@ def carregar_dados(scope_key) -> dict:
         df_pend = pd.DataFrame(columns=["subtipo_nome", "unidade_nome",
                                         "status_nome", "deadline", "data_conclusao"])
 
-    # --- Tela 8: PASTAS p/ CONTAGEM (quinzena|mês) ---
-    # Espelha vw_v360_metas_vs_meta: entra_meta=true + indicador_meta em
-    # ('Pastas abertas','Pastas enviadas'), pelas 5 unidades (unidade_principal).
+    # --- Telas 7/8: PASTAS (abertas + enviadas) p/ contagem quinzena|mês ---
+    # Carrega SEM filtro de meta (por subtipo), pelas 5 unidades. As colunas
+    # indicador_meta/entra_meta vêm juntas p/ a definição "oficial" funcionar.
+    # A definição efetiva (legalone|oficial) é aplicada em _pastas_split().
+    SUB_PASTAS_ALL = SUB_PASTAS + SUB_ENVIADAS
     reg3, ini3 = [], 0
     while True:
         r3 = (sb.table("vw_tasks_completa")
-                .select("unidade_principal,indicador_meta,entra_meta,"
-                        "status_nome,data_conclusao,creation_date")
-                .eq("entra_meta", True)
-                .in_("indicador_meta", ["Pastas abertas", "Pastas enviadas"])
+                .select("unidade_principal,subtipo_nome,indicador_meta,"
+                        "entra_meta,status_nome,data_conclusao,creation_date")
+                .in_("subtipo_nome", SUB_PASTAS_ALL)
                 .in_("unidade_principal", UNIDADES)
                 .range(ini3, ini3 + 999).execute())
         d3 = r3.data or []
