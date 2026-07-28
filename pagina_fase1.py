@@ -308,11 +308,12 @@ def _donut_pct(aberto, cumprido, key):
     st.plotly_chart(t.layout(fig, 260), use_container_width=True, key=key)
 
 
-def _linha_sub(label, aberto, cumprido, mx):
+def _linha_sub(label, aberto, cumprido, mx, total=False):
     mx = mx or 1
+    extra = (f' &nbsp;<b style="color:{t.CORES["ink"]};">= {aberto + cumprido}</b>') if total else ""
     return (f'<div style="margin:7px 0;">'
             f'<div style="display:flex;justify-content:space-between;color:{t.CORES["muted"]};font-size:12.5px;">'
-            f'<span>{label}</span><span><b style="color:{t.ABERTO};">{aberto}</b> &nbsp;<b style="color:{t.CUMPRIDO};">{cumprido}</b></span></div>'
+            f'<span>{label}</span><span><b style="color:{t.ABERTO};">{aberto}</b> &nbsp;<b style="color:{t.CUMPRIDO};">{cumprido}</b>{extra}</span></div>'
             f'<div style="display:flex;height:7px;border-radius:4px;overflow:hidden;margin-top:3px;background:{t.CORES["panel2"]};">'
             f'<div style="width:{aberto / mx * 100:.1f}%;background:{t.ABERTO};"></div>'
             f'<div style="width:{cumprido / mx * 100:.1f}%;background:{t.CUMPRIDO};"></div></div></div>')
@@ -389,16 +390,18 @@ def _deferidos_cadastro(df, subtipos, labels, ini, fim, titulo, key):
     with c1:
         _donut_pct(tot_ab, tot_cu, key=f"{key}_donut")
         st.markdown(
-            f'<div style="display:flex;gap:28px;justify-content:center;">'
+            f'<div style="display:flex;gap:24px;justify-content:center;">'
             f'<div style="text-align:center;"><div style="font-size:26px;font-weight:900;color:{t.ABERTO};">{tot_ab}</div>'
             f'<div style="color:{t.CORES["muted"]};font-size:12px;">Em aberto</div></div>'
             f'<div style="text-align:center;"><div style="font-size:26px;font-weight:900;color:{t.CUMPRIDO};">{tot_cu}</div>'
-            f'<div style="color:{t.CORES["muted"]};font-size:12px;">Cumpridos</div></div></div>'
+            f'<div style="color:{t.CORES["muted"]};font-size:12px;">Cumpridos</div></div>'
+            f'<div style="text-align:center;"><div style="font-size:26px;font-weight:900;color:{t.CORES["ink"]};">{tot_ab + tot_cu}</div>'
+            f'<div style="color:{t.CORES["muted"]};font-size:12px;">Total</div></div></div>'
             f'<div style="text-align:center;color:{t.CORES["dim"]};font-size:12px;margin-top:8px;">'
-            f'Cadastrados no mês (data de cadastro): <b>{tot_ab + tot_cu}</b> ({len(subtipos)} subtipos)</div>',
+            f'Cadastrados no mês (data de cadastro) · {len(subtipos)} subtipos</div>',
             unsafe_allow_html=True)
     with c2:
-        st.markdown("".join(_linha_sub(n, a, c, mx) for n, a, c in dados), unsafe_allow_html=True)
+        st.markdown("".join(_linha_sub(n, a, c, mx, total=True) for n, a, c in dados), unsafe_allow_html=True)
 
 
 def _tab_beneficios(df, ini, fim):
