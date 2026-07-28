@@ -363,9 +363,48 @@ def _por_unidade_ac(df, subtipos, titulo, ini, fim, key):
                     use_container_width=True, key=key)
 
 
+def _ab_cump_cad(df, subtipos, ini, fim):
+    """Conta por DATA DE CADASTRO (creation_date) no mês, dividido pela situação
+    atual: 'em aberto' (Pendente/Não cumprido/Iniciado) vs 'cumprido'."""
+    base = df[df["subtipo_nome"].isin(subtipos)]
+    cad = base[_entre(base["creation_date"], ini, fim)]
+    aberto = int(cad["status_nome"].isin(STATUS_ABERTO).sum())
+    cump = int((cad["status_nome"] == STATUS_CUMPRIDO).sum())
+    return aberto, cump
+
+
+def _deferidos_cadastro(df, subtipos, labels, ini, fim, titulo, key):
+    """Deferidos contabilizados por DATA DE CADASTRO (creation_date) no mês —
+    NÃO por data de conclusão. Formato donut (total) + detalhamento por tipo
+    (o que é o quê: Deferido, REENVIO, Implantado, PAB...), estilo painel."""
+    t.secao(titulo)
+    dados = [(labels.get(s, s), *_ab_cump_cad(df, [s], ini, fim)) for s in subtipos]
+    tot_ab = sum(a for _, a, _ in dados)
+    tot_cu = sum(c for _, _, c in dados)
+    if tot_ab + tot_cu == 0:
+        st.info("Nenhum deferido cadastrado neste mês para o recorte selecionado.")
+        return
+    mx = max([a + c for _, a, c in dados] + [1])
+    c1, c2 = st.columns([1, 1.5])
+    with c1:
+        _donut_pct(tot_ab, tot_cu, key=f"{key}_donut")
+        st.markdown(
+            f'<div style="display:flex;gap:28px;justify-content:center;">'
+            f'<div style="text-align:center;"><div style="font-size:26px;font-weight:900;color:{t.ABERTO};">{tot_ab}</div>'
+            f'<div style="color:{t.CORES["muted"]};font-size:12px;">Em aberto</div></div>'
+            f'<div style="text-align:center;"><div style="font-size:26px;font-weight:900;color:{t.CUMPRIDO};">{tot_cu}</div>'
+            f'<div style="color:{t.CORES["muted"]};font-size:12px;">Cumpridos</div></div></div>'
+            f'<div style="text-align:center;color:{t.CORES["dim"]};font-size:12px;margin-top:8px;">'
+            f'Cadastrados no mês (data de cadastro): <b>{tot_ab + tot_cu}</b> ({len(subtipos)} subtipos)</div>',
+            unsafe_allow_html=True)
+    with c2:
+        st.markdown("".join(_linha_sub(n, a, c, mx) for n, a, c in dados), unsafe_allow_html=True)
+
+
 def _tab_beneficios(df, ini, fim):
     _por_unidade_ac(df, G_INDEFERIDO, "Indeferido — por unidade", ini, fim, "b_ind")
-    _por_unidade_ac(df, G_DEFERIDOS, "Deferidos (consolidado) — por unidade", ini, fim, "b_def")
+    _deferidos_cadastro(df, G_DEFERIDOS, LABELS_DEF,
+                        "Deferidos (consolidado) — por data de cadastro", ini, fim, "b_def")
     _por_unidade_ac(df, G_PRE_ACORDO, "Pré-Acordo — por unidade", ini, fim, "b_pre")
     _por_unidade_ac(df, G_ACORDO_AGENDADO, "Acordo Agendado — por unidade", ini, fim, "b_aga")
     _por_unidade_ac(df, G_ACORDO_REALIZADO, "Acordo Realizado — por unidade", ini, fim, "b_are")
