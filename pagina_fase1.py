@@ -403,8 +403,8 @@ def _deferidos_cadastro(df, subtipos, labels, ini, fim, titulo, key):
 
 def _tab_beneficios(df, ini, fim):
     _por_unidade_ac(df, G_INDEFERIDO, "Indeferido — por unidade", ini, fim, "b_ind")
-    _deferidos_cadastro(df, G_DEFERIDOS, LABELS_DEF,
-                        "Deferidos (consolidado) — por data de cadastro", ini, fim, "b_def")
+    _deferidos_cadastro(df, G_DEFERIDOS, LABELS_DEF, ini, fim,
+                        "Deferidos (consolidado) — por data de cadastro", "b_def")
     _por_unidade_ac(df, G_PRE_ACORDO, "Pré-Acordo — por unidade", ini, fim, "b_pre")
     _por_unidade_ac(df, G_ACORDO_AGENDADO, "Acordo Agendado — por unidade", ini, fim, "b_aga")
     _por_unidade_ac(df, G_ACORDO_REALIZADO, "Acordo Realizado — por unidade", ini, fim, "b_are")
