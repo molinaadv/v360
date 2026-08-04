@@ -26,6 +26,7 @@ import pagina_mapa
 import pagina_performance
 import pagina_comparativo
 import pagina_audiencias
+import pagina_assistente
 import pagina_tv
 import pagina_usuarios
 
@@ -97,6 +98,7 @@ st.sidebar.markdown(
 
 PAGINAS = [
     ("🏠  Executivo",     "Executivo"),
+    ("🤖  Assistente",    "Assistente"),
     ("💡  Insights V360", "Insights"),
     ("🎯  Metas",         "Metas"),
     ("🗺️  Mapa",          "Mapa"),
@@ -151,7 +153,7 @@ df_comp_f = df_comp
 ano_filtro = data.hoje().year
 mes_filtro = data.hoje().month
 
-if pagina != "TV":
+if pagina not in ("TV", "Assistente"):
     MESES = {1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio",
              6: "Junho", 7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro",
              11: "Novembro", 12: "Dezembro"}
@@ -211,6 +213,11 @@ try:
         pagina_comparativo.render(df_f, df_metas_f, ano_filtro, mes_filtro)
     elif pagina == "Audiencias":
         pagina_audiencias.render(df_f, df_comp_f, ano_filtro, mes_filtro)
+    elif pagina == "Assistente":
+        # o recorte do login vira o escopo da IA: None = todas as unidades
+        _permitidas = auth.unidades_permitidas()
+        _escopo = "*" if _permitidas is None else list(_permitidas)
+        pagina_assistente.render(_escopo)
     elif pagina == "Captacao":
         if pagina_captacao is None:
             st.error("A página 'V360 Clientes' não pôde ser carregada.")
