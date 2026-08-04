@@ -1,5 +1,3 @@
-# Tema dark na raiz do Streamlit (garante fundo/texto/widgets escuros mesmo
-# antes do CSS custom carregar). Cores = tokens do painel de TV.
 [theme]
 base = "dark"
 primaryColor = "#5b8cff"
@@ -8,4 +6,5 @@ secondaryBackgroundColor = "#141d2e"
 textColor = "#f2f6ff"
 
 [client]
+toolbarMode = "minimal"
 showSidebarNavigation = false
