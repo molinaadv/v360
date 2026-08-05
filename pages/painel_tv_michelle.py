@@ -16,7 +16,7 @@ SLUG         = "michelle_rot"
 SEG_POR_TELA = [30000, 30000, 30000, 30000, 30000]  # ms por tela: T1, T2, T3, T4, Chamados
 
 # >>> COLE AQUI a URL pública da TV de Chamados (FastAPI no Render), sem barra no fim.
-URL_CHAMADOS = "https://COLE-AQUI-A-URL-DO-RENDER"
+URL_CHAMADOS = "https://v360-tv-operacional-unificada.onrender.com/"
 REFRESH_MS   = 5 * 60 * 1000
 CACHE_TTL    = 120
 MODO_DEMO    = False
