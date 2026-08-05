@@ -1177,92 +1177,575 @@ def carregar_t5():
     }
 
 def render_t5():
+    """
+    Tela 5 do V360 Clientes usando o MESMO layout visual da Tela 1
+    do protótipo V360 Relatórios — TV Gerencial.
+    """
     d = carregar_t5()
     unidades = d["unidades"][:8]
 
     linhas = ""
     for i, u in enumerate(unidades, 1):
-        medalha = "🥇" if i == 1 else ("🥈" if i == 2 else ("🥉" if i == 3 else f"{i}º"))
-        cor = "#2fce8f" if u["conversao"] >= d["conversao"] and u["conversao"] >= 10 else ("#f5a524" if u["conversao"] >= 10 else "#ef7a7a")
+        posicao = "🥇" if i == 1 else ("🥈" if i == 2 else ("🥉" if i == 3 else f"{i}º"))
+
+        if u["conversao"] >= max(d["conversao"], 15):
+            badge_bg = "#ECFBF2"
+            badge_fg = "#15803D"
+        elif u["conversao"] >= 10:
+            badge_bg = "#FFF8E7"
+            badge_fg = "#A66A00"
+        else:
+            badge_bg = "#FFF1F1"
+            badge_fg = "#B91C1C"
+
+        participacao = (u["clientes"] / d["total"] * 100) if d["total"] else 0
+
         linhas += f"""
-        <div class="urow">
-          <div class="upos">{medalha}</div>
-          <div><div class="uname">{u["nome"]}</div><div class="usub">{u["clientes"]} clientes válidos</div></div>
-          <div class="num">{u["clientes"]}</div>
-          <div class="num">{u["atendimento"]}</div>
-          <div class="num">{u["agendados"]}</div>
-          <div class="num ok">{u["convertidos"]}</div>
-          <div class="num bad">{u["perdidos"]}</div>
-          <div class="conv" style="color:{cor};border-color:{cor}55;background:{cor}16">{u["conversao"]:.1f}%</div>
-        </div>"""
+        <div class="ur">
+          <div class="pos">{posicao}</div>
+          <div>
+            <div class="un">{u["nome"]}</div>
+            <div class="us">{participacao:.1f}% do total</div>
+          </div>
+          <div class="cell">{u["clientes"]}</div>
+          <div class="cell">{u["atendimento"]}</div>
+          <div class="cell" style="color:var(--green)">{u["convertidos"]}</div>
+          <div class="cell" style="color:var(--red)">{u["perdidos"]}</div>
+          <div class="badge" style="--bb:{badge_bg};--bf:{badge_fg}">{u["conversao"]:.1f}%</div>
+        </div>
+        """
 
     if not linhas:
-        linhas = '<div class="empty">Sem unidades com cadastros válidos no período.</div>'
+        linhas = """
+        <div class="empty-wide">
+          Sem unidades com cadastros válidos no período.
+        </div>
+        """
 
-    ma = d["melhor_atendente"]
-    if ma:
+    melhor = d["melhor_atendente"]
+    if melhor:
         melhor_html = f"""
-          <div class="medal">🥇</div>
-          <div><div class="bestname">{ma["nome"]}</div><div class="bestsub">{ma["unidade"]}</div></div>
-          <div class="bestnum">{ma["qtd"]}<small>cadastros</small></div>
+        <div class="rr destaque">
+          <div class="pos">🥇</div>
+          <div>
+            <div class="rn">{melhor["nome"]}</div>
+            <div class="us">{melhor["unidade"]}</div>
+          </div>
+          <div class="rv">{melhor["qtd"]}</div>
+        </div>
         """
     else:
-        melhor_html = '<div class="empty">Sem produção individual no período.</div>'
+        melhor_html = """
+        <div class="empty-box">Sem produção individual no período.</div>
+        """
 
-    alertas_html = "".join(
-        f'<div class="alert {"good" if "melhor conversão" in a else "warn"}">{a}</div>'
-        for a in d["alertas"][:4]
-    )
+    alertas_html = ""
+    for alerta in d["alertas"][:4]:
+        alerta_lower = alerta.lower()
+        if "melhor conversão" in alerta_lower or "sem alertas" in alerta_lower:
+            cor = "var(--green)"
+            fundo = "#ECFBF2"
+        elif "abaixo" in alerta_lower or "maior fila" in alerta_lower:
+            cor = "var(--red)"
+            fundo = "#FFF1F1"
+        else:
+            cor = "var(--yellow)"
+            fundo = "#FFF8E7"
+
+        alertas_html += f"""
+        <div class="alert" style="--a:{cor};--ab:{fundo}">
+          {alerta}
+        </div>
+        """
+
+    if unidades:
+        lider = unidades[0]
+        leitura_1 = f'<b>{lider["nome"]}</b> concentra {(lider["clientes"] / d["total"] * 100 if d["total"] else 0):.1f}% dos cadastros.'
+    else:
+        leitura_1 = "Sem produção por unidade no período."
+
+    leitura_html = f"""
+      <div class="alert" style="--a:var(--blue);--ab:#EEF7FF">{leitura_1}</div>
+      <div class="alert" style="--a:var(--green);--ab:#ECFBF2"><b>{d["convertidos"]} clientes</b> foram convertidos.</div>
+      <div class="alert" style="--a:var(--red);--ab:#FFF1F1"><b>{d["perdidos"]} clientes</b> foram perdidos.</div>
+    """
+
+    status_fonte = d["fonte"]
+    status_classe = "live"
+    if str(status_fonte).lower().startswith("indisponível"):
+        status_classe = "offline"
 
     return f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Tela 5 — V360 Comercial</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Tela 5 — V360 Clientes</title>
 <style>
-:root{{--bg:#0b1220;--panel:#141d2e;--panel2:#1b2740;--line:#26324d;--ink:#f2f6ff;--muted:#93a1bd;--dim:#6b7a99;--accent:#5b8cff;--cyan:#22d3ee;--ok:#2fce8f;--warn:#f5a524;--bad:#ef7a7a;--purple:#8b7bff}}
-*{{box-sizing:border-box;margin:0;padding:0}}html,body{{height:100%}}
-body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;background:radial-gradient(1300px 800px at 12% -12%,#17253e 0%,var(--bg) 55%);color:var(--ink);padding:22px clamp(16px,3vw,46px) 18px;display:flex;flex-direction:column;gap:14px}}
-header{{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}}
-.htitle{{display:flex;align-items:center;gap:15px}}.badge{{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--cyan),#268db5);display:grid;place-items:center;font-size:21px;font-weight:900;color:#04141f}}
-h1{{font-size:clamp(21px,2.45vw,31px);font-weight:850;letter-spacing:-.02em}}.sub{{color:var(--muted);font-size:13.5px;margin-top:3px}}
-.meta{{display:flex;gap:9px;align-items:center;flex-wrap:wrap}}.pill{{font-size:12px;font-weight:750;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--muted)}}.live{{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(47,206,143,.18);margin-right:7px}}
-.cards{{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}}.card{{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:16px;padding:13px 16px;position:relative;overflow:hidden}}.card:after{{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--c)}}.cl{{font-size:10.5px;color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.06em}}.cv{{font-size:35px;font-weight:850;line-height:1;margin-top:9px}}
-.main{{display:grid;grid-template-columns:1.55fr .8fr;gap:14px;flex:1;min-height:0}}.panel{{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px;overflow:hidden;min-height:0}}.ph{{padding:13px 17px 10px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}}.pt{{font-size:17px;font-weight:850}}.pc{{font-size:11px;color:var(--muted)}}
-.uhead,.urow{{display:grid;grid-template-columns:42px 1.35fr repeat(5,.66fr) .72fr;gap:8px;align-items:center}}.uhead{{padding:9px 12px;color:var(--muted);font-size:10px;font-weight:850;text-transform:uppercase;text-align:center;background:#0e1728}}.uhead div:nth-child(2){{text-align:left}}.urow{{padding:10px 12px;border-bottom:1px solid var(--line)}}.upos{{font-size:18px;text-align:center;font-weight:850}}.uname{{font-size:13.5px;font-weight:800}}.usub{{font-size:9.5px;color:var(--dim);margin-top:2px}}.num{{font-size:17px;font-weight:850;text-align:center}}.num.ok{{color:var(--ok)}}.num.bad{{color:var(--bad)}}.conv{{justify-self:center;font-size:11px;font-weight:850;padding:5px 8px;border:1px solid;border-radius:999px}}
-.side{{display:grid;grid-template-rows:.75fr .9fr 1fr;gap:14px;min-height:0}}.best{{padding:14px;display:grid;grid-template-columns:54px 1fr auto;gap:11px;align-items:center}}.medal{{width:54px;height:54px;border-radius:15px;background:#332d20;display:grid;place-items:center;font-size:28px}}.bestname{{font-size:16px;font-weight:850}}.bestsub{{font-size:11px;color:var(--muted);margin-top:3px}}.bestnum{{font-size:31px;font-weight:900;color:var(--purple);text-align:right}}.bestnum small{{display:block;font-size:9px;color:var(--dim);margin-top:3px}}
-.highlights{{padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:9px}}.hi{{background:#0e1728;border:1px solid var(--line);border-radius:12px;padding:10px}}.hil{{font-size:9px;color:var(--muted);font-weight:850;text-transform:uppercase}}.hiv{{font-size:13px;font-weight:800;margin-top:5px;line-height:1.2}}
-.alerts{{padding:11px 13px;display:grid;gap:7px}}.alert{{padding:8px 10px;border-radius:10px;border-left:4px solid var(--warn);background:rgba(245,165,36,.10);font-size:10.5px;font-weight:700;line-height:1.35}}.alert.good{{border-color:var(--ok);background:rgba(47,206,143,.10)}}.empty{{color:var(--dim);font-size:13px;padding:18px}}
-footer{{color:var(--dim);font-size:12px;text-align:center}}
+:root{{
+  --navy:#061A33;
+  --navy2:#0A3D7A;
+  --cyan:#18BDF2;
+  --blue:#0F78C8;
+  --green:#22C55E;
+  --red:#EF4444;
+  --yellow:#F59E0B;
+  --purple:#8B5CF6;
+  --bg:#EEF4FA;
+  --card:#fff;
+  --text:#172033;
+  --muted:#6B7A90;
+  --line:#DCE6F0;
+}}
+
+*{{box-sizing:border-box}}
+html,body{{
+  margin:0;
+  width:100%;
+  height:100%;
+  font-family:Inter,Segoe UI,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  overflow:hidden;
+}}
+
+body{{
+  background:
+    radial-gradient(circle at 85% 0%,rgba(24,189,242,.16),transparent 28%),
+    linear-gradient(135deg,#F8FBFE,#EEF4FA);
+}}
+
+.app{{
+  width:100vw;
+  height:100vh;
+  display:grid;
+  grid-template-rows:88px 1fr 44px;
+}}
+
+header{{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 30px;
+  color:#fff;
+  background:linear-gradient(90deg,var(--navy),#0A2E57,var(--navy2));
+  border-bottom:4px solid var(--cyan);
+}}
+
+.brand{{display:flex;gap:18px;align-items:center}}
+
+.mark{{
+  width:58px;
+  height:58px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(145deg,var(--cyan),var(--blue));
+  font-size:22px;
+  font-weight:950;
+}}
+
+.title{{font-size:28px;font-weight:950}}
+.sub{{
+  color:#B8D9EF;
+  font-size:13px;
+  font-weight:850;
+  letter-spacing:2px;
+  margin-top:4px;
+}}
+
+.hr{{display:flex;gap:12px;align-items:center}}
+.pill{{
+  padding:10px 15px;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.18);
+  font-size:13px;
+  font-weight:850;
+  max-width:520px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}}
+
+.live,.offline{{
+  display:inline-block;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  margin-right:8px;
+}}
+.live{{
+  background:var(--green);
+  box-shadow:0 0 0 5px rgba(34,197,94,.15);
+}}
+.offline{{
+  background:var(--red);
+  box-shadow:0 0 0 5px rgba(239,68,68,.15);
+}}
+
+main{{position:relative;overflow:hidden}}
+
+.screen{{
+  position:absolute;
+  inset:0;
+  padding:18px 24px 14px;
+  display:grid;
+  gap:16px;
+}}
+
+.general{{grid-template-rows:112px 1fr}}
+
+.kpis{{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:14px;
+}}
+
+.kpi{{
+  background:linear-gradient(145deg,#08294F,#0B3B70);
+  border:1px solid rgba(24,189,242,.22);
+  border-radius:19px;
+  padding:16px 18px;
+  color:#fff;
+  position:relative;
+}}
+
+.kpi:after{{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:5px;
+  background:var(--accent);
+}}
+
+.kl{{
+  color:#C7E8F9;
+  font-size:12px;
+  font-weight:950;
+  text-transform:uppercase;
+}}
+
+.kv{{
+  font-size:36px;
+  font-weight:950;
+  margin:10px 0 8px;
+}}
+
+.ks{{
+  color:var(--cyan);
+  font-size:12px;
+  font-weight:800;
+}}
+
+.grid{{
+  display:grid;
+  grid-template-columns:1.45fr 1fr .85fr;
+  gap:16px;
+  min-height:0;
+}}
+
+.panel{{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:20px;
+  overflow:hidden;
+}}
+
+.ph{{
+  padding:14px 18px 11px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}}
+
+.pt{{
+  font-size:19px;
+  font-weight:950;
+  color:var(--navy);
+}}
+
+.pc{{
+  font-size:12px;
+  color:var(--muted);
+  font-weight:750;
+}}
+
+.units{{padding:9px 14px}}
+
+.uhead,.ur{{
+  display:grid;
+  grid-template-columns:44px 1.35fr repeat(4,.65fr) .75fr;
+  gap:10px;
+  align-items:center;
+}}
+
+.uhead{{
+  padding:9px 7px;
+  background:#F3F7FB;
+  border:1px solid var(--line);
+  border-radius:12px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:950;
+  text-transform:uppercase;
+  text-align:center;
+}}
+
+.uhead div:nth-child(2){{text-align:left}}
+
+.ur{{
+  padding:10px 7px;
+  border-bottom:1px solid #EDF2F7;
+}}
+
+.pos{{
+  font-size:20px;
+  text-align:center;
+  font-weight:950;
+}}
+
+.un{{
+  font-size:15px;
+  font-weight:900;
+  color:var(--navy);
+}}
+
+.us{{
+  font-size:10px;
+  color:var(--muted);
+}}
+
+.cell{{
+  font-size:19px;
+  font-weight:950;
+  text-align:center;
+}}
+
+.badge{{
+  padding:7px 9px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:950;
+  text-align:center;
+  background:var(--bb);
+  color:var(--bf);
+}}
+
+.stack{{
+  display:grid;
+  grid-template-rows:1fr 1fr;
+  gap:16px;
+}}
+
+.rank,.alerts{{padding:9px 14px}}
+
+.rr{{
+  display:grid;
+  grid-template-columns:40px 1fr 68px;
+  gap:10px;
+  align-items:center;
+  padding:14px 5px;
+}}
+
+.rn{{font-size:15px;font-weight:900}}
+.rv{{
+  font-size:27px;
+  font-weight:950;
+  text-align:right;
+}}
+
+.alert{{
+  padding:10px 11px;
+  border-radius:12px;
+  border-left:5px solid var(--a);
+  background:var(--ab);
+  font-size:12px;
+  font-weight:750;
+  margin-bottom:8px;
+  line-height:1.35;
+}}
+
+.empty-wide,.empty-box{{
+  color:var(--muted);
+  font-size:13px;
+  padding:22px 12px;
+}}
+
+footer{{
+  background:var(--navy);
+  color:#D7E8F5;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 24px;
+  font-size:12px;
+  font-weight:800;
+}}
+
+.ticker{{
+  width:72%;
+  overflow:hidden;
+  white-space:nowrap;
+}}
+
+.ticker span{{
+  display:inline-block;
+  padding-left:100%;
+  animation:scroll 22s linear infinite;
+}}
+
+@keyframes scroll{{
+  to{{transform:translateX(-100%)}}
+}}
 </style>
 </head>
-<body>
-<header><div class="htitle"><div class="badge">5</div><div><h1>V360 Comercial · Clientes</h1><div class="sub">Visão consolidada por unidade · sem repetição do funil</div></div></div><div class="meta"><span class="pill">● todas as unidades</span><span class="pill">Competência · {d["competencia"]}</span><span class="pill"><span class="live"></span>{d["fonte"]}</span></div></header>
-<div class="cards">
-<div class="card" style="--c:var(--cyan)"><div class="cl">Clientes</div><div class="cv">{d["total"]}</div></div>
-<div class="card" style="--c:var(--accent)"><div class="cl">Em atendimento</div><div class="cv">{d["atendimento"]}</div></div>
-<div class="card" style="--c:var(--warn)"><div class="cl">Agendados</div><div class="cv">{d["agendados"]}</div></div>
-<div class="card" style="--c:var(--ok)"><div class="cl">Convertidos</div><div class="cv">{d["convertidos"]}</div></div>
-<div class="card" style="--c:var(--bad)"><div class="cl">Perdidos</div><div class="cv">{d["perdidos"]}</div></div>
-<div class="card" style="--c:var(--purple)"><div class="cl">Conversão</div><div class="cv">{d["conversao"]:.1f}%</div></div>
-</div>
-<div class="main">
-<div class="panel"><div class="ph"><div><div class="pt">Visão consolidada por unidade</div><div class="pc">Resultados comerciais do mês</div></div><div class="pc">Erro de cadastro não contabilizado</div></div>
-<div class="uhead"><div></div><div>Unidade</div><div>Clientes</div><div>Atendimento</div><div>Agendados</div><div>Convertidos</div><div>Perdidos</div><div>Conversão</div></div>
-{linhas}</div>
-<div class="side">
-<div class="panel"><div class="ph"><div><div class="pt">Melhor atendente</div><div class="pc">Primeiro lugar geral</div></div></div><div class="best">{melhor_html}</div></div>
-<div class="panel"><div class="ph"><div><div class="pt">Destaques comerciais</div><div class="pc">Toda a operação</div></div></div><div class="highlights">
-<div class="hi"><div class="hil">Benefício mais frequente</div><div class="hiv">{d["melhor_beneficio"]}</div></div>
-<div class="hi"><div class="hil">Bairro destaque</div><div class="hiv">{d["melhor_bairro"]}</div></div>
-<div class="hi"><div class="hil">Local destaque</div><div class="hiv">{d["melhor_local"]}</div></div>
-<div class="hi"><div class="hil">Unidades ativas</div><div class="hiv">{len(d["unidades"])}</div></div>
-</div></div>
-<div class="panel"><div class="ph"><div><div class="pt">Alertas comerciais</div><div class="pc">Todas as unidades</div></div></div><div class="alerts">{alertas_html}</div></div>
-</div></div>
-<footer>Painel Gerência · Tela 5 de 6 · atualizado {datetime.now():%d/%m %H:%M}</footer>
-</body></html>"""
 
+<body>
+<div class="app">
+
+<header>
+  <div class="brand">
+    <div class="mark">V360</div>
+    <div>
+      <div class="title">V360 Relatórios — TV Gerencial</div>
+      <div class="sub">CENTRAL DE OPERAÇÕES • CLIENTES POR UNIDADE</div>
+    </div>
+  </div>
+
+  <div class="hr">
+    <div class="pill">{d["competencia"]}</div>
+    <div class="pill">Todas as unidades</div>
+    <div class="pill">
+      <span class="{status_classe}"></span>{status_fonte}
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="screen general">
+
+  <div class="kpis">
+    <div class="kpi" style="--accent:var(--cyan)">
+      <div class="kl">Clientes</div>
+      <div class="kv">{d["total"]}</div>
+      <div class="ks">cadastros válidos</div>
+    </div>
+
+    <div class="kpi" style="--accent:var(--blue)">
+      <div class="kl">Em atendimento</div>
+      <div class="kv">{d["atendimento"]}</div>
+      <div class="ks">{(d["atendimento"] / d["total"] * 100 if d["total"] else 0):.1f}% dos cadastros</div>
+    </div>
+
+    <div class="kpi" style="--accent:var(--green)">
+      <div class="kl">Convertidos</div>
+      <div class="kv">{d["convertidos"]}</div>
+      <div class="ks">{d["conversao"]:.1f}% de conversão</div>
+    </div>
+
+    <div class="kpi" style="--accent:var(--red)">
+      <div class="kl">Perdidos</div>
+      <div class="kv">{d["perdidos"]}</div>
+      <div class="ks">{(d["perdidos"] / d["total"] * 100 if d["total"] else 0):.1f}% de perda</div>
+    </div>
+
+    <div class="kpi" style="--accent:var(--purple)">
+      <div class="kl">Unidades ativas</div>
+      <div class="kv">{len(d["unidades"])}</div>
+      <div class="ks">com produção</div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <div class="panel">
+      <div class="ph">
+        <div>
+          <div class="pt">Visão consolidada por unidade</div>
+          <div class="pc">Clientes • Atendimento • Convertidos • Perdidos • Conversão</div>
+        </div>
+        <div class="pc">Erro de cadastro não contabilizado</div>
+      </div>
+
+      <div class="units">
+        <div class="uhead">
+          <div></div>
+          <div>Unidade</div>
+          <div>Clientes</div>
+          <div>Atendimento</div>
+          <div>Convertidos</div>
+          <div>Perdidos</div>
+          <div>Conversão</div>
+        </div>
+        {linhas}
+      </div>
+    </div>
+
+    <div class="stack">
+
+      <div class="panel">
+        <div class="ph">
+          <div>
+            <div class="pt">Melhor atendente do mês</div>
+            <div class="pc">Primeiro lugar geral</div>
+          </div>
+        </div>
+        <div class="rank">
+          {melhor_html}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">
+          <div>
+            <div class="pt">Alertas gerenciais</div>
+            <div class="pc">Todas as unidades</div>
+          </div>
+        </div>
+        <div class="alerts">
+          {alertas_html}
+        </div>
+      </div>
+
+    </div>
+
+    <div class="panel">
+      <div class="ph">
+        <div>
+          <div class="pt">Leitura rápida</div>
+          <div class="pc">Resumo executivo</div>
+        </div>
+      </div>
+
+      <div class="alerts">
+        {leitura_html}
+      </div>
+    </div>
+
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="ticker">
+    <span>
+      {d["total"]} clientes válidos •
+      {d["atendimento"]} em atendimento •
+      {d["convertidos"]} convertidos •
+      {d["perdidos"]} perdidos •
+      conversão geral de {d["conversao"]:.1f}%
+    </span>
+  </div>
+  <div>Tela 5 de 6 · atualizado {datetime.now():%d/%m %H:%M}</div>
+</footer>
+
+</div>
+</body>
+</html>"""
 
 # ───────── ROTATIVO ─────────
 def _esc(h):
