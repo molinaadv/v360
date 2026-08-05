@@ -13,7 +13,10 @@ import streamlit as st
 # ───────── CONFIG ─────────
 NUCLEO_LABEL = "Gerência"
 SLUG         = "michelle_rot"
-SEG_POR_TELA = [30000, 30000, 30000, 30000]     # ms por tela: [Tela 1, Tela 2, Tela 3, Tela 4]
+SEG_POR_TELA = [30000, 30000, 30000, 30000, 30000]  # ms por tela: T1, T2, T3, T4, Chamados
+
+# >>> COLE AQUI a URL pública da TV de Chamados (FastAPI no Render), sem barra no fim.
+URL_CHAMADOS = "https://COLE-AQUI-A-URL-DO-RENDER"
 REFRESH_MS   = 5 * 60 * 1000
 CACHE_TTL    = 120
 MODO_DEMO    = False
@@ -1021,6 +1024,12 @@ def _esc(h):
 
 try:
     h1=_esc(render_t1()); h2=_esc(render_t2()); h3=_esc(render_t3()); h4=_esc(render_t4())
+    # 5ª tela: TV de Chamados (FastAPI/Render) embutida em iframe de tela cheia
+    _tela_chamados=("<!DOCTYPE html><html><head><meta charset='UTF-8'>"
+        "<style>html,body{margin:0;padding:0;height:100%;background:#0b1220;overflow:hidden}"
+        "iframe{border:0;width:100%;height:100%;display:block}</style></head>"
+        "<body><iframe src='"+URL_CHAMADOS+"' allow='fullscreen'></iframe></body></html>")
+    h5=_esc(_tela_chamados)
     combined=("<!DOCTYPE html><html><head><meta charset='UTF-8'><style>"
       "html,body{margin:0;padding:0;height:100%;background:#0b1220;overflow:hidden}"
       "#tv{position:fixed;inset:0;width:100%;height:100%;border:0}"
@@ -1036,7 +1045,7 @@ try:
       "background:linear-gradient(90deg,#5b8cff,#2fce8f)}"
       ".seg:hover .bar{background:#31405f}"
       "</style></head><body><iframe id='tv'></iframe><div id='nav'></div><script>"
-      "const TELAS=[`"+h1+"`,`"+h2+"`,`"+h3+"`,`"+h4+"`];const DUR="+str(SEG_POR_TELA)+";"
+      "const TELAS=[`"+h1+"`,`"+h2+"`,`"+h3+"`,`"+h4+"`,`"+h5+"`];const DUR="+str(SEG_POR_TELA)+";"
       "const f=document.getElementById('tv');const nav=document.getElementById('nav');"
       "let i=0,tmr=null,startAt=0,remaining=0,paused=false;"
       "const btn=document.createElement('div');btn.id='pbtn';btn.textContent='\u23f8';btn.title='Pausar / continuar (espaço)';"
