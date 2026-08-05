@@ -1,5 +1,5 @@
 """
-V360 — Painel Gerência · ROTATIVO (Tela 1 ↔ Tela 2)
+V360 — Painel Gerência · ROTATIVO (6 telas)
 ====================================================
 Arquivo ÚNICO. Alterna as telas no navegador (30s cada), sem recarregar.
 Só editar SEG_POR_TELA pra mudar o tempo de cada tela.
@@ -13,13 +13,33 @@ import streamlit as st
 # ───────── CONFIG ─────────
 NUCLEO_LABEL = "Gerência"
 SLUG         = "michelle_rot"
-SEG_POR_TELA = [30000, 30000, 30000, 30000, 30000]  # ms por tela: T1, T2, T3, T4, Chamados
+SEG_POR_TELA = [30000, 30000, 30000, 30000, 30000, 30000]  # T1, T2, T3, T4, Comercial, Chamados
 
 # >>> COLE AQUI a URL pública da TV de Chamados (FastAPI no Render), sem barra no fim.
 URL_CHAMADOS = "https://v360-tv-operacional-unificada.onrender.com/"
 REFRESH_MS   = 5 * 60 * 1000
 CACHE_TTL    = 120
 MODO_DEMO    = False
+
+# ───────── TELA 5 — V360 COMERCIAL / CLIENTES ─────────
+# Pode usar a mesma base do painel ou uma base separada.
+# Se os secrets abaixo não existirem, o código usa SUPABASE_URL/SUPABASE_KEY.
+CLIENTES_TABLE = "captacao_leads"
+CLIENTES_URL_SECRET = "SUPABASE_CLIENTES_URL"
+CLIENTES_KEY_SECRET = "SUPABASE_CLIENTES_KEY"
+
+# Colunas esperadas na tabela captacao_leads.
+CL_ID = "id"
+CL_NOME = "nome_cliente"
+CL_STATUS = "status_lead"
+CL_UNIDADE = "unidade"
+CL_ATENDENTE = "captador_nome"
+CL_BENEFICIO = "beneficio"
+CL_BAIRRO = "bairro"
+CL_LOCAL = "local_captacao"
+CL_DATA = "data_captacao"
+
+STATUS_ERRO_CADASTRO = "Erro de cadastro"
 
 VIEW="vw_tasks_completa"; COL_ASSUNTO="subtipo_nome"; COL_STATUS="status_nome"
 COL_RESP="responsavel_nome"; COL_CRIADOR="usuario_criador"; COL_MES_CONCL="mes_conclusao"
@@ -1018,18 +1038,244 @@ def render_t4():
     for k,v in repl.items(): tpl=tpl.replace(k,v)
     return tpl
 
+
+# ───────── TELA 5 — V360 COMERCIAL ─────────
+@st.cache_resource
+def _sb_clientes():
+    from supabase import create_client
+    url = st.secrets.get(CLIENTES_URL_SECRET, st.secrets["SUPABASE_URL"])
+    key = st.secrets.get(CLIENTES_KEY_SECRET, st.secrets["SUPABASE_KEY"])
+    return create_client(url, key)
+
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+def carregar_t5():
+    hoje = datetime.now()
+    inicio_mes = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    try:
+        sb = _sb_clientes()
+        regs, ini = [], 0
+        while True:
+            q = (
+                sb.table(CLIENTES_TABLE)
+                .select("*")
+                .gte(CL_DATA, inicio_mes.isoformat())
+                .range(ini, ini + 999)
+                .execute()
+            )
+            lote = q.data or []
+            regs.extend(lote)
+            if len(lote) < 1000:
+                break
+            ini += 1000
+        df = pd.DataFrame(regs)
+    except Exception as exc:
+        return {
+            "competencia": f"{MESES_PT[hoje.month]} / {hoje.year}",
+            "fonte": f"indisponível: {exc}",
+            "total": 0, "atendimento": 0, "agendados": 0,
+            "convertidos": 0, "perdidos": 0, "conversao": 0.0,
+            "unidades": [], "melhor_atendente": None,
+            "melhor_beneficio": "—", "melhor_bairro": "—", "melhor_local": "—",
+            "alertas": ["Base V360 Clientes indisponível ou não configurada."]
+        }
+
+    if df.empty:
+        return {
+            "competencia": f"{MESES_PT[hoje.month]} / {hoje.year}",
+            "fonte": "ao vivo (Supabase)",
+            "total": 0, "atendimento": 0, "agendados": 0,
+            "convertidos": 0, "perdidos": 0, "conversao": 0.0,
+            "unidades": [], "melhor_atendente": None,
+            "melhor_beneficio": "—", "melhor_bairro": "—", "melhor_local": "—",
+            "alertas": ["Sem cadastros válidos no mês atual."]
+        }
+
+    for col in [CL_STATUS, CL_UNIDADE, CL_ATENDENTE, CL_BENEFICIO, CL_BAIRRO, CL_LOCAL]:
+        if col not in df.columns:
+            df[col] = ""
+
+    # Erro de cadastro não entra em nenhum indicador.
+    df = df[df[CL_STATUS].fillna("").astype(str).str.strip() != STATUS_ERRO_CADASTRO].copy()
+
+    status = df[CL_STATUS].fillna("Novo").astype(str).str.strip()
+    total = int(len(df))
+    atendimento = int((status == "Em atendimento").sum())
+    agendados = int((status == "Agendado").sum())
+    convertidos = int((status == "Convertido").sum())
+    perdidos = int((status == "Perdido").sum())
+    conversao = round(convertidos / total * 100, 1) if total else 0.0
+
+    unidade_series = df[CL_UNIDADE].fillna("— sem unidade").astype(str).str.strip().replace("", "— sem unidade")
+    df["_unidade_tv"] = unidade_series
+
+    unidades = []
+    for unidade, du in df.groupby("_unidade_tv", dropna=False):
+        stt = du[CL_STATUS].fillna("Novo").astype(str).str.strip()
+        tot = int(len(du))
+        conv = int((stt == "Convertido").sum())
+        unidades.append({
+            "nome": str(unidade),
+            "clientes": tot,
+            "atendimento": int((stt == "Em atendimento").sum()),
+            "agendados": int((stt == "Agendado").sum()),
+            "convertidos": conv,
+            "perdidos": int((stt == "Perdido").sum()),
+            "conversao": round(conv / tot * 100, 1) if tot else 0.0,
+        })
+    unidades.sort(key=lambda x: (x["clientes"], x["conversao"]), reverse=True)
+
+    atend = (
+        df[CL_ATENDENTE].fillna("— sem atendente").astype(str).str.strip().replace("", "— sem atendente")
+        .value_counts()
+    )
+    melhor_atendente = None
+    if not atend.empty:
+        nome = str(atend.index[0])
+        qtd = int(atend.iloc[0])
+        du = df[df[CL_ATENDENTE].fillna("").astype(str).str.strip() == nome]
+        uni = str(du["_unidade_tv"].mode().iloc[0]) if not du.empty and not du["_unidade_tv"].mode().empty else "—"
+        melhor_atendente = {"nome": nome, "qtd": qtd, "unidade": uni}
+
+    def _mais_frequente(col):
+        s = df[col].fillna("").astype(str).str.strip()
+        s = s[s != ""]
+        return str(s.value_counts().index[0]) if not s.empty else "—"
+
+    melhor_beneficio = _mais_frequente(CL_BENEFICIO)
+    melhor_bairro = _mais_frequente(CL_BAIRRO)
+    melhor_local = _mais_frequente(CL_LOCAL)
+
+    alertas = []
+    if unidades:
+        melhor_conv = max(unidades, key=lambda x: x["conversao"])
+        alertas.append(f'{melhor_conv["nome"]}: melhor conversão do mês ({melhor_conv["conversao"]:.1f}%).')
+        criticas = [u for u in unidades if u["clientes"] >= 5 and u["conversao"] < 10]
+        for u in criticas[:2]:
+            alertas.append(f'{u["nome"]}: conversão abaixo de 10% ({u["conversao"]:.1f}%).')
+        maior_fila = max(unidades, key=lambda x: x["atendimento"])
+        if maior_fila["atendimento"] > 0:
+            alertas.append(f'{maior_fila["nome"]}: maior fila em atendimento ({maior_fila["atendimento"]}).')
+    if not alertas:
+        alertas = ["Operação sem alertas críticos no período."]
+
+    return {
+        "competencia": f"{MESES_PT[hoje.month]} / {hoje.year}",
+        "fonte": "ao vivo (Supabase)",
+        "total": total,
+        "atendimento": atendimento,
+        "agendados": agendados,
+        "convertidos": convertidos,
+        "perdidos": perdidos,
+        "conversao": conversao,
+        "unidades": unidades,
+        "melhor_atendente": melhor_atendente,
+        "melhor_beneficio": melhor_beneficio,
+        "melhor_bairro": melhor_bairro,
+        "melhor_local": melhor_local,
+        "alertas": alertas,
+    }
+
+def render_t5():
+    d = carregar_t5()
+    unidades = d["unidades"][:8]
+
+    linhas = ""
+    for i, u in enumerate(unidades, 1):
+        medalha = "🥇" if i == 1 else ("🥈" if i == 2 else ("🥉" if i == 3 else f"{i}º"))
+        cor = "#2fce8f" if u["conversao"] >= d["conversao"] and u["conversao"] >= 10 else ("#f5a524" if u["conversao"] >= 10 else "#ef7a7a")
+        linhas += f"""
+        <div class="urow">
+          <div class="upos">{medalha}</div>
+          <div><div class="uname">{u["nome"]}</div><div class="usub">{u["clientes"]} clientes válidos</div></div>
+          <div class="num">{u["clientes"]}</div>
+          <div class="num">{u["atendimento"]}</div>
+          <div class="num">{u["agendados"]}</div>
+          <div class="num ok">{u["convertidos"]}</div>
+          <div class="num bad">{u["perdidos"]}</div>
+          <div class="conv" style="color:{cor};border-color:{cor}55;background:{cor}16">{u["conversao"]:.1f}%</div>
+        </div>"""
+
+    if not linhas:
+        linhas = '<div class="empty">Sem unidades com cadastros válidos no período.</div>'
+
+    ma = d["melhor_atendente"]
+    if ma:
+        melhor_html = f"""
+          <div class="medal">🥇</div>
+          <div><div class="bestname">{ma["nome"]}</div><div class="bestsub">{ma["unidade"]}</div></div>
+          <div class="bestnum">{ma["qtd"]}<small>cadastros</small></div>
+        """
+    else:
+        melhor_html = '<div class="empty">Sem produção individual no período.</div>'
+
+    alertas_html = "".join(
+        f'<div class="alert {"good" if "melhor conversão" in a else "warn"}">{a}</div>'
+        for a in d["alertas"][:4]
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Tela 5 — V360 Comercial</title>
+<style>
+:root{{--bg:#0b1220;--panel:#141d2e;--panel2:#1b2740;--line:#26324d;--ink:#f2f6ff;--muted:#93a1bd;--dim:#6b7a99;--accent:#5b8cff;--cyan:#22d3ee;--ok:#2fce8f;--warn:#f5a524;--bad:#ef7a7a;--purple:#8b7bff}}
+*{{box-sizing:border-box;margin:0;padding:0}}html,body{{height:100%}}
+body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;background:radial-gradient(1300px 800px at 12% -12%,#17253e 0%,var(--bg) 55%);color:var(--ink);padding:22px clamp(16px,3vw,46px) 18px;display:flex;flex-direction:column;gap:14px}}
+header{{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}}
+.htitle{{display:flex;align-items:center;gap:15px}}.badge{{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--cyan),#268db5);display:grid;place-items:center;font-size:21px;font-weight:900;color:#04141f}}
+h1{{font-size:clamp(21px,2.45vw,31px);font-weight:850;letter-spacing:-.02em}}.sub{{color:var(--muted);font-size:13.5px;margin-top:3px}}
+.meta{{display:flex;gap:9px;align-items:center;flex-wrap:wrap}}.pill{{font-size:12px;font-weight:750;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--muted)}}.live{{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(47,206,143,.18);margin-right:7px}}
+.cards{{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}}.card{{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:16px;padding:13px 16px;position:relative;overflow:hidden}}.card:after{{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--c)}}.cl{{font-size:10.5px;color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.06em}}.cv{{font-size:35px;font-weight:850;line-height:1;margin-top:9px}}
+.main{{display:grid;grid-template-columns:1.55fr .8fr;gap:14px;flex:1;min-height:0}}.panel{{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px;overflow:hidden;min-height:0}}.ph{{padding:13px 17px 10px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}}.pt{{font-size:17px;font-weight:850}}.pc{{font-size:11px;color:var(--muted)}}
+.uhead,.urow{{display:grid;grid-template-columns:42px 1.35fr repeat(5,.66fr) .72fr;gap:8px;align-items:center}}.uhead{{padding:9px 12px;color:var(--muted);font-size:10px;font-weight:850;text-transform:uppercase;text-align:center;background:#0e1728}}.uhead div:nth-child(2){{text-align:left}}.urow{{padding:10px 12px;border-bottom:1px solid var(--line)}}.upos{{font-size:18px;text-align:center;font-weight:850}}.uname{{font-size:13.5px;font-weight:800}}.usub{{font-size:9.5px;color:var(--dim);margin-top:2px}}.num{{font-size:17px;font-weight:850;text-align:center}}.num.ok{{color:var(--ok)}}.num.bad{{color:var(--bad)}}.conv{{justify-self:center;font-size:11px;font-weight:850;padding:5px 8px;border:1px solid;border-radius:999px}}
+.side{{display:grid;grid-template-rows:.75fr .9fr 1fr;gap:14px;min-height:0}}.best{{padding:14px;display:grid;grid-template-columns:54px 1fr auto;gap:11px;align-items:center}}.medal{{width:54px;height:54px;border-radius:15px;background:#332d20;display:grid;place-items:center;font-size:28px}}.bestname{{font-size:16px;font-weight:850}}.bestsub{{font-size:11px;color:var(--muted);margin-top:3px}}.bestnum{{font-size:31px;font-weight:900;color:var(--purple);text-align:right}}.bestnum small{{display:block;font-size:9px;color:var(--dim);margin-top:3px}}
+.highlights{{padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:9px}}.hi{{background:#0e1728;border:1px solid var(--line);border-radius:12px;padding:10px}}.hil{{font-size:9px;color:var(--muted);font-weight:850;text-transform:uppercase}}.hiv{{font-size:13px;font-weight:800;margin-top:5px;line-height:1.2}}
+.alerts{{padding:11px 13px;display:grid;gap:7px}}.alert{{padding:8px 10px;border-radius:10px;border-left:4px solid var(--warn);background:rgba(245,165,36,.10);font-size:10.5px;font-weight:700;line-height:1.35}}.alert.good{{border-color:var(--ok);background:rgba(47,206,143,.10)}}.empty{{color:var(--dim);font-size:13px;padding:18px}}
+footer{{color:var(--dim);font-size:12px;text-align:center}}
+</style>
+</head>
+<body>
+<header><div class="htitle"><div class="badge">5</div><div><h1>V360 Comercial · Clientes</h1><div class="sub">Visão consolidada por unidade · sem repetição do funil</div></div></div><div class="meta"><span class="pill">● todas as unidades</span><span class="pill">Competência · {d["competencia"]}</span><span class="pill"><span class="live"></span>{d["fonte"]}</span></div></header>
+<div class="cards">
+<div class="card" style="--c:var(--cyan)"><div class="cl">Clientes</div><div class="cv">{d["total"]}</div></div>
+<div class="card" style="--c:var(--accent)"><div class="cl">Em atendimento</div><div class="cv">{d["atendimento"]}</div></div>
+<div class="card" style="--c:var(--warn)"><div class="cl">Agendados</div><div class="cv">{d["agendados"]}</div></div>
+<div class="card" style="--c:var(--ok)"><div class="cl">Convertidos</div><div class="cv">{d["convertidos"]}</div></div>
+<div class="card" style="--c:var(--bad)"><div class="cl">Perdidos</div><div class="cv">{d["perdidos"]}</div></div>
+<div class="card" style="--c:var(--purple)"><div class="cl">Conversão</div><div class="cv">{d["conversao"]:.1f}%</div></div>
+</div>
+<div class="main">
+<div class="panel"><div class="ph"><div><div class="pt">Visão consolidada por unidade</div><div class="pc">Resultados comerciais do mês</div></div><div class="pc">Erro de cadastro não contabilizado</div></div>
+<div class="uhead"><div></div><div>Unidade</div><div>Clientes</div><div>Atendimento</div><div>Agendados</div><div>Convertidos</div><div>Perdidos</div><div>Conversão</div></div>
+{linhas}</div>
+<div class="side">
+<div class="panel"><div class="ph"><div><div class="pt">Melhor atendente</div><div class="pc">Primeiro lugar geral</div></div></div><div class="best">{melhor_html}</div></div>
+<div class="panel"><div class="ph"><div><div class="pt">Destaques comerciais</div><div class="pc">Toda a operação</div></div></div><div class="highlights">
+<div class="hi"><div class="hil">Benefício mais frequente</div><div class="hiv">{d["melhor_beneficio"]}</div></div>
+<div class="hi"><div class="hil">Bairro destaque</div><div class="hiv">{d["melhor_bairro"]}</div></div>
+<div class="hi"><div class="hil">Local destaque</div><div class="hiv">{d["melhor_local"]}</div></div>
+<div class="hi"><div class="hil">Unidades ativas</div><div class="hiv">{len(d["unidades"])}</div></div>
+</div></div>
+<div class="panel"><div class="ph"><div><div class="pt">Alertas comerciais</div><div class="pc">Todas as unidades</div></div></div><div class="alerts">{alertas_html}</div></div>
+</div></div>
+<footer>Painel Gerência · Tela 5 de 6 · atualizado {datetime.now():%d/%m %H:%M}</footer>
+</body></html>"""
+
+
 # ───────── ROTATIVO ─────────
 def _esc(h):
     return (h.replace("\\","\\\\").replace("`","\\`").replace("${","\\${").replace("</script","<\\/script"))
 
 try:
-    h1=_esc(render_t1()); h2=_esc(render_t2()); h3=_esc(render_t3()); h4=_esc(render_t4())
-    # 5ª tela: TV de Chamados (FastAPI/Render) embutida em iframe de tela cheia
+    h1=_esc(render_t1()); h2=_esc(render_t2()); h3=_esc(render_t3()); h4=_esc(render_t4()); h5=_esc(render_t5())
+    # 6ª tela: TV de Chamados (FastAPI/Render) embutida em iframe de tela cheia
     _tela_chamados=("<!DOCTYPE html><html><head><meta charset='UTF-8'>"
         "<style>html,body{margin:0;padding:0;height:100%;background:#0b1220;overflow:hidden}"
         "iframe{border:0;width:100%;height:100%;display:block}</style></head>"
         "<body><iframe src='"+URL_CHAMADOS+"' allow='fullscreen'></iframe></body></html>")
-    h5=_esc(_tela_chamados)
+    h6=_esc(_tela_chamados)
     combined=("<!DOCTYPE html><html><head><meta charset='UTF-8'><style>"
       "html,body{margin:0;padding:0;height:100%;background:#0b1220;overflow:hidden}"
       "#tv{position:fixed;inset:0;width:100%;height:100%;border:0}"
@@ -1045,7 +1291,7 @@ try:
       "background:linear-gradient(90deg,#5b8cff,#2fce8f)}"
       ".seg:hover .bar{background:#31405f}"
       "</style></head><body><iframe id='tv'></iframe><div id='nav'></div><script>"
-      "const TELAS=[`"+h1+"`,`"+h2+"`,`"+h3+"`,`"+h4+"`,`"+h5+"`];const DUR="+str(SEG_POR_TELA)+";"
+      "const TELAS=[`"+h1+"`,`"+h2+"`,`"+h3+"`,`"+h4+"`,`"+h5+"`,`"+h6+"`];const DUR="+str(SEG_POR_TELA)+";"
       "const f=document.getElementById('tv');const nav=document.getElementById('nav');"
       "let i=0,tmr=null,startAt=0,remaining=0,paused=false;"
       "const btn=document.createElement('div');btn.id='pbtn';btn.textContent='\u23f8';btn.title='Pausar / continuar (espaço)';"
