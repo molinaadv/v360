@@ -1042,9 +1042,42 @@ def render_t4():
 # ───────── TELA 5 — V360 COMERCIAL ─────────
 @st.cache_resource
 def _sb_clientes():
+    """
+    Cria uma conexão EXCLUSIVA com o Supabase do V360 Clientes.
+
+    Não usa mais a base principal como fallback, porque são projetos diferentes.
+    Isso evita procurar captacao_leads no Supabase da TV/Relatórios.
+    """
     from supabase import create_client
-    url = st.secrets.get(CLIENTES_URL_SECRET, st.secrets["SUPABASE_URL"])
-    key = st.secrets.get(CLIENTES_KEY_SECRET, st.secrets["SUPABASE_KEY"])
+
+    secrets_disponiveis = set(st.secrets.keys())
+
+    faltando = [
+        nome
+        for nome in (CLIENTES_URL_SECRET, CLIENTES_KEY_SECRET)
+        if nome not in secrets_disponiveis
+    ]
+    if faltando:
+        raise RuntimeError(
+            "Secrets ausentes: " + ", ".join(faltando)
+        )
+
+    url = str(st.secrets[CLIENTES_URL_SECRET]).strip()
+    key = str(st.secrets[CLIENTES_KEY_SECRET]).strip()
+
+    if not url or url == "...":
+        raise RuntimeError(
+            f"{CLIENTES_URL_SECRET} está vazio ou ainda contém '...'"
+        )
+    if not key or key == "...":
+        raise RuntimeError(
+            f"{CLIENTES_KEY_SECRET} está vazio ou ainda contém '...'"
+        )
+    if not url.startswith("https://"):
+        raise RuntimeError(
+            f"{CLIENTES_URL_SECRET} deve começar com https://"
+        )
+
     return create_client(url, key)
 
 @st.cache_data(ttl=CACHE_TTL, show_spinner=False)
@@ -1077,7 +1110,7 @@ def carregar_t5():
             "convertidos": 0, "perdidos": 0, "conversao": 0.0,
             "unidades": [], "melhor_atendente": None,
             "melhor_beneficio": "—", "melhor_bairro": "—", "melhor_local": "—",
-            "alertas": ["Base V360 Clientes indisponível ou não configurada."]
+            "alertas": [f"Falha na conexão do V360 Clientes: {type(exc).__name__}: {exc}"]
         }
 
     if df.empty:
