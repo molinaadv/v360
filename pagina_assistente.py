@@ -35,6 +35,15 @@ consultar listar_subtipos antes (estes nomes estão certos):
   NÃO existe "Enviado p/ Análise 1" — ignore.
   NUNCA responda "pasta" com meta_vs_realizado.
 
+  ⚠ CUIDADO — "aberta" tem DOIS sentidos opostos nestes subtipos:
+    • "quantas pastas ABRIU / pastas ABERTAS no mês" = pasta já analisada =
+      campo `cumpridos_no_mes`. É ESTE o número que responde a pergunta.
+    • `em_aberto` = tarefa que AINDA NÃO foi analisada (fila a fazer).
+      Só use se perguntarem "quantas faltam analisar / estão pendentes".
+  Ao responder "pastas abertas", lidere com `cumpridos_no_mes` e chame de
+  "pastas abertas no mês". Se citar o `em_aberto`, chame de "ainda a analisar"
+  — nunca de "abertas", ou o gestor lê o número trocado.
+
 - "agendamento de segurança" é indicador SEPARADO — NÃO entra na conta de pastas:
       subtipo = ["Enviado p/ Análise - Agendemento de Segurança"]
   Copie o nome EXATAMENTE assim, inclusive "Agendemento" (a base tem esse erro
