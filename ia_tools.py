@@ -118,26 +118,88 @@ def _janela(periodo: str) -> tuple[datetime, datetime, str]:
     return ini, fim, f"{ini:%m/%Y}"
 
 
+def _escopo(unidades, unidade: str | None):
+    """Estreita para uma unidade SÓ se ela estiver dentro do recorte do usuário.
+    Ponto único — nenhuma função deve montar escopo na mão."""
+    if unidade and (unidades == "*" or unidade in unidades):
+        return [unidade]
+    return unidades
+
+
+def _inicio_mes(d: datetime) -> datetime:
+    return d.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+def _mes_desloc(d: datetime, n: int) -> datetime:
+    """Primeiro dia do mês deslocado n meses (n negativo = passado)."""
+    mes = d.month - 1 + n
+    return d.replace(year=d.year + mes // 12, month=mes % 12 + 1, day=1,
+                     hour=0, minute=0, second=0, microsecond=0)
+
+
+def _subtipo_filtro(q, subtipo):
+    """Aceita string ou lista — vários indicadores do escritório somam 2-3
+    subtipos (ex.: 'Enviado p/ Análise' + 'Enviado p/ Análise ADM')."""
+    if not subtipo:
+        return q
+    return q.eq("subtipo_nome", subtipo) if isinstance(subtipo, str) \
+        else q.in_("subtipo_nome", subtipo)
+
+
+def _contar_periodo(view: str, unidades, campo: str, ini: datetime,
+                    fim: datetime, subtipo=None, status: str | None = None) -> int:
+    """COUNT no Postgres numa janela de data. Não puxa linha."""
+    q = _sb().table(view).select("id", count="exact")
+    q = _subtipo_filtro(_aplicar_recorte(q, unidades), subtipo)
+    if status:
+        q = q.eq("status_nome", status)
+    q = q.gte(campo, ini.isoformat()).lt(campo, fim.isoformat())
+    return q.limit(1).execute().count or 0
+
+
+def _variacao(atual: int, anterior: int) -> dict:
+    """Delta legível. Sem base anterior NÃO inventa percentual."""
+    if not anterior:
+        return {"variacao_pct": None,
+                "leitura": "sem base no período anterior para comparar"}
+    pct = round(100 * (atual - anterior) / anterior)
+    sinal = "alta" if pct > 0 else ("queda" if pct < 0 else "estável")
+    return {"variacao_pct": pct,
+            "leitura": f"{sinal} de {abs(pct)}%" if pct else "estável"}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # funções expostas à IA
 # ─────────────────────────────────────────────────────────────────────────────
 
-def contar_em_aberto(unidades, subtipo: str, unidade: str | None = None) -> dict:
-    """Em aberto (Pendente/Não cumprido/Iniciado) + cumpridos no mês corrente."""
-    esc = [unidade] if unidade and unidades != "*" and unidade in unidades else (
-        [unidade] if unidade and unidades == "*" else unidades
-    )
-    mes = _mes_ref(None)
+def contar_em_aberto(unidades, subtipo, unidade: str | None = None) -> dict:
+    """Em aberto (Pendente/Não cumprido/Iniciado) + cumpridos no mês, SEMPRE
+    com a comparação vs. o mês anterior — o gestor não precisa pedir.
 
-    aberto = _contar(VIEW_TASKS, esc, {"subtipo_nome": subtipo},
-                     {"status_nome": EM_ABERTO})
-    cumprido = _contar(VIEW_TASKS, esc, {"subtipo_nome": subtipo,
-                                         "status_nome": "Cumprido",
-                                         "mes_conclusao": mes})
+    A comparação usa o MESMO PERÍODO do mês passado (até o mesmo dia), porque o
+    mês corrente ainda não fechou. Comparar mês parcial com mês cheio inventa
+    queda que não existe."""
+    esc = _escopo(unidades, unidade)
+    agora = datetime.now(TZ)
+    ini_mes, prox_mes = _inicio_mes(agora), _mes_desloc(agora, 1)
+    ini_ant = _mes_desloc(agora, -1)
+    mes = ini_mes.strftime("%Y-%m")
+
+    q = _subtipo_filtro(_aplicar_recorte(
+        _sb().table(VIEW_TASKS).select("id", count="exact"), esc), subtipo)
+    aberto = q.in_("status_nome", EM_ABERTO).limit(1).execute().count or 0
+
+    cumprido = _contar_periodo(VIEW_TASKS, esc, "data_conclusao",
+                               ini_mes, prox_mes, subtipo, "Cumprido")
+    ant_cheio = _contar_periodo(VIEW_TASKS, esc, "data_conclusao",
+                                ini_ant, ini_mes, subtipo, "Cumprido")
+    corte = min(ini_ant + (agora - ini_mes), ini_mes)
+    ant_parcial = _contar_periodo(VIEW_TASKS, esc, "data_conclusao",
+                                  ini_ant, corte, subtipo, "Cumprido")
 
     # quebra por status (revela "Iniciado" fantasma) e por unidade
     df = _puxar(VIEW_TASKS, esc, ["status_nome", "unidade_nome"],
-                lambda q: q.eq("subtipo_nome", subtipo).in_("status_nome", EM_ABERTO))
+                lambda q: _subtipo_filtro(q, subtipo).in_("status_nome", EM_ABERTO))
 
     por_status = df["status_nome"].value_counts().to_dict() if not df.empty else {}
     por_unidade = (df["unidade_nome"].value_counts().head(5).to_dict()
@@ -153,7 +215,16 @@ def contar_em_aberto(unidades, subtipo: str, unidade: str | None = None) -> dict
         "pct_concluido": round(100 * cumprido / total) if total else 0,
         "por_status": por_status,
         "por_unidade": por_unidade,
-        "fonte": {"view": VIEW_TASKS, "regra": f"mes_conclusao = {mes}"},
+        "comparacao": {
+            "mes_anterior_mesmo_periodo": ant_parcial,
+            "mes_anterior_fechado": ant_cheio,
+            **_variacao(cumprido, ant_parcial),
+            "nota": (f"mês em andamento (dia {agora.day}); a variação compara com "
+                     f"os {ant_parcial} do mesmo período do mês anterior, "
+                     f"não com o mês fechado ({ant_cheio})"),
+        },
+        "fonte": {"view": VIEW_TASKS,
+                  "regra": f"data_conclusao em {mes} · America/Manaus"},
     }
 
 
@@ -187,7 +258,9 @@ def ranking_executor(unidades, subtipo: str | None = None,
 def agenda_semana(unidades, unidade: str | None = None) -> dict:
     """Perícias JUD e audiências da semana (compromissos)."""
     ini, fim = _semana_atual()
-    esc = [unidade] if unidade else unidades
+    # o recorte do usuário manda: só estreita para `unidade` se ela for permitida.
+    # (sem isto, a IA passando unidade fora do recorte substituía o filtro)
+    esc = _escopo(unidades, unidade)
 
     df = _puxar(VIEW_COMPROMISSOS, esc,
                 ["end_datetime", "subtipo_nome", "cliente_nome",
@@ -243,6 +316,55 @@ def meta_vs_realizado(unidades, mes: str | None = None) -> dict:
     }
 
 
+def serie_mensal(unidades, base: str = "conclusao", subtipo=None,
+                 unidade: str | None = None, meses: int = 6) -> dict:
+    """Evolução mês a mês + variação vs. o mês anterior.
+
+    base='conclusao' → tarefas CUMPRIDAS no mês (data_conclusao).
+    base='criacao'   → tarefas CRIADAS no mês (creation_date).
+
+    São dois "crescimentos" diferentes — entrada de trabalho vs. entrega. Não
+    misturar os dois na mesma frase.
+    """
+    n = max(2, min(int(meses or 6), 12))
+    esc = _escopo(unidades, unidade)
+    agora = datetime.now(TZ)
+    campo = "creation_date" if base == "criacao" else "data_conclusao"
+    status = None if base == "criacao" else "Cumprido"
+
+    linhas = []
+    for k in range(n - 1, -1, -1):
+        ini, fim = _mes_desloc(agora, -k), _mes_desloc(agora, -k + 1)
+        linhas.append({"mes": ini.strftime("%Y-%m"),
+                       "qtd": _contar_periodo(VIEW_TASKS, esc, campo,
+                                              ini, fim, subtipo, status)})
+
+    for i, l in enumerate(linhas):
+        l.update(_variacao(l["qtd"], linhas[i - 1]["qtd"]) if i
+                 else {"variacao_pct": None, "leitura": "primeiro mês da série"})
+    linhas[-1]["parcial"] = True
+
+    fechados = [l["qtd"] for l in linhas[:-1]]
+    avisos = ["O último mês é o CORRENTE e está incompleto — queda nele pode ser "
+              "só o mês não ter fechado. Compare com o mesmo período, ou use o "
+              "último mês fechado."]
+    if base != "criacao":
+        avisos.append("Mês antigo com status preso aparece subcontado até rodar "
+                      "o Re-sync.")
+
+    return {
+        "base": "criação (creation_date)" if base == "criacao"
+                else "conclusão (data_conclusao)",
+        "subtipo": subtipo or "todos os assuntos",
+        "meses": linhas,
+        "media_meses_fechados": round(sum(fechados) / len(fechados), 1) if fechados else None,
+        "ultimo_mes_fechado": linhas[-2] if len(linhas) > 1 else None,
+        "avisos": avisos,
+        "fonte": {"view": VIEW_TASKS,
+                  "regra": f"{n} meses por {campo} · America/Manaus"},
+    }
+
+
 def listar_subtipos(unidades, contem: str = "") -> dict:
     """Subtipos batem letra por letra. A IA usa isto antes de contar quando não
     tem certeza do nome exato (evita devolver 0 por causa de um acento)."""
@@ -262,6 +384,7 @@ REGISTRO = {
     "ranking_executor": ranking_executor,
     "agenda_semana": agenda_semana,
     "meta_vs_realizado": meta_vs_realizado,
+    "serie_mensal": serie_mensal,
     "listar_subtipos": listar_subtipos,
 }
 
@@ -309,6 +432,26 @@ SCHEMA = [
         "input_schema": {
             "type": "object",
             "properties": {"mes": {"type": "string", "description": "AAAA-MM. Padrão: mês corrente."}},
+        },
+    },
+    {
+        "name": "serie_mensal",
+        "description": ("Evolução mês a mês de um assunto, com a variação percentual "
+                        "de cada mês vs. o anterior. Use para 'cresceu?', 'caiu?', "
+                        "'como está vs. mês passado', tendência e comparativo. "
+                        "base='conclusao' conta o que foi CUMPRIDO (entrega); "
+                        "base='criacao' conta o que ENTROU (demanda)."),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "base": {"type": "string", "enum": ["conclusao", "criacao"],
+                         "description": "Padrão: conclusao."},
+                "subtipo": {"type": "string",
+                            "description": "Opcional. Nome exato do subtipo."},
+                "unidade": {"type": "string", "description": "Opcional."},
+                "meses": {"type": "integer",
+                          "description": "Quantos meses na série (2 a 12). Padrão: 6."},
+            },
         },
     },
     {

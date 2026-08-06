@@ -243,7 +243,11 @@ try:
         else:
             permitidas = auth.unidades_permitidas()
             if permitidas is None:
-                uni_ass = sorted(df_tasks["unidade_nome"].dropna().astype(str).unique())
+                # "*" = sem filtro no banco. NÃO materializar a lista a partir do
+                # df_tasks: unidade sem tarefa na janela carregada sumiria do
+                # escopo, inclusive nos compromissos (que têm outra origem de
+                # nome de unidade). O ia_tools já trata "*" como escopo aberto.
+                uni_ass = "*"
                 rotulo = "todas as unidades"
             else:
                 uni_ass = sorted(str(u) for u in permitidas)
