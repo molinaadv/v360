@@ -130,20 +130,43 @@ def _neutro_para_anthropic(historico: list) -> list:
 
 
 def _neutro_para_openai(historico: list, system: str) -> list:
+    """Converte para o formato OpenAI/Moonshot.
+
+    PEGADINHA DA MOONSHOT: com thinking ativo (padrão nos K2.x/K3), toda
+    mensagem de assistente que traz `tool_calls` PRECISA devolver o
+    `reasoning_content` que veio na resposta. Faltando, a API responde 400
+    ("thinking is enabled but reasoning_content is missing...") e, pior, a
+    mensagem defeituosa fica no histórico e derruba todas as rodadas seguintes.
+
+    Se um turno com chamada não tiver raciocínio (ex.: foi o Claude que
+    respondeu antes da troca de modelo), o turno E o resultado dele são
+    omitidos — mandar um `tool` sem o `tool_call` correspondente também é 400.
+    """
     msgs = [{"role": "system", "content": system}]
+    pular_resultado = False
+
     for t in historico:
         if t["quem"] == "user":
             msgs.append({"role": "user", "content": t["texto"]})
+            pular_resultado = False
         elif t["quem"] == "ia":
+            if t.get("chamadas") and not t.get("raciocinio"):
+                pular_resultado = True      # turno de outro provedor: descarta o par
+                continue
             m = {"role": "assistant", "content": t.get("texto") or ""}
             if t.get("chamadas"):
+                m["reasoning_content"] = t["raciocinio"]
                 m["tool_calls"] = [
                     {"id": c["id"], "type": "function",
                      "function": {"name": c["nome"],
                                   "arguments": json.dumps(c["args"], ensure_ascii=False)}}
                     for c in t["chamadas"]]
             msgs.append(m)
+            pular_resultado = False
         else:
+            if pular_resultado:
+                pular_resultado = False
+                continue
             for r in t["resultados"]:
                 msgs.append({"role": "tool", "tool_call_id": r["id"],
                              "content": _txt(r["dado"])})
@@ -174,7 +197,13 @@ def _tools_anthropic(cache: bool) -> list:
 
 def _post(url: str, headers: dict, corpo: dict) -> dict:
     r = requests.post(url, headers=headers, json=corpo, timeout=90)
-    r.raise_for_status()
+    if r.status_code >= 400:
+        # o corpo é onde a API explica o motivo — sem ele o erro vira adivinhação
+        try:
+            det = r.json().get("error", {}).get("message") or r.text[:300]
+        except Exception:
+            det = r.text[:300]
+        raise RuntimeError(f"HTTP {r.status_code} — {det}")
     return r.json()
 
 
@@ -191,14 +220,15 @@ def _chamar_anthropic(historico, system, chave, modelo, cache) -> dict:
     texto = "".join(b["text"] for b in resp["content"] if b["type"] == "text")
     chamadas = [{"id": b["id"], "nome": b["name"], "args": b["input"]}
                 for b in resp["content"] if b["type"] == "tool_use"]
-    return {"texto": texto, "chamadas": chamadas, "uso": resp.get("usage", {})}
+    return {"texto": texto, "chamadas": chamadas, "raciocinio": "",
+            "uso": resp.get("usage", {})}
 
 
 def _chamar_moonshot(historico, system, chave, modelo, _cache) -> dict:
     resp = _post(URL_MOONSHOT,
                  {"Authorization": f"Bearer {chave}",
                   "Content-Type": "application/json"},
-                 {"model": modelo, "max_tokens": 1024, "temperature": 0.6,
+                 {"model": modelo, "max_tokens": 1024,
                   "tools": _tools_openai(),
                   "messages": _neutro_para_openai(historico, system)})
 
@@ -210,7 +240,9 @@ def _chamar_moonshot(historico, system, chave, modelo, _cache) -> dict:
         except json.JSONDecodeError:
             args = {}
         chamadas.append({"id": c["id"], "nome": c["function"]["name"], "args": args})
+    # guardado para ser devolvido na próxima rodada (exigência da Moonshot)
     return {"texto": msg.get("content") or "", "chamadas": chamadas,
+            "raciocinio": msg.get("reasoning_content") or "",
             "uso": resp.get("usage", {})}
 
 
@@ -243,7 +275,8 @@ def conversar(historico: list, system: str, unidades, segredos,
         r = chamar(podar(historico), system, chave, cfg["modelo"], cache)
         uso = r["uso"]
         historico.append({"quem": "ia", "texto": r["texto"],
-                          "chamadas": r["chamadas"]})
+                          "chamadas": r["chamadas"],
+                          "raciocinio": r.get("raciocinio", "")})
 
         if not r["chamadas"]:
             texto = r["texto"]
