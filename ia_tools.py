@@ -142,12 +142,20 @@ def _janela(periodo: str) -> tuple[datetime, datetime, str]:
     return ini, fim, f"{ini:%m/%Y}"
 
 
-def _escopo(unidades, unidade: str | None):
-    """Estreita para uma unidade SÓ se ela estiver dentro do recorte do usuário.
-    Ponto único — nenhuma função deve montar escopo na mão."""
-    if unidade and (unidades == "*" or unidade in unidades):
-        return [unidade]
-    return unidades
+def _escopo(unidades, unidade):
+    """Estreita para uma ou mais unidades, SÓ as que estiverem dentro do recorte
+    do usuário. Ponto único — nenhuma função deve montar escopo na mão.
+
+    Aceita lista porque um núcleo costuma ter duas unidades na base
+    (ex.: 'COMPENSA' e 'AÇÃO COMPENSA') — perguntar por uma só devolve zero.
+    """
+    if not unidade:
+        return unidades
+    pedidas = [unidade] if isinstance(unidade, str) else list(unidade)
+    if unidades == "*":
+        return pedidas
+    permitidas = [u for u in pedidas if u in unidades]
+    return permitidas or unidades      # nenhuma permitida → mantém o recorte
 
 
 def _inicio_mes(d: datetime) -> datetime:
@@ -465,8 +473,11 @@ SCHEMA = [
                                     "['Enviado p/ Análise','Enviado p/ Análise ADM']. "
                                     "Para um só, mande lista de um item."),
                 },
-                "unidade": {"type": "string",
-                            "description": "Opcional. Restringe a uma unidade, ex.: 'MANACAPURU'"},
+                "unidade": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": ("Opcional. Uma ou mais unidades EXATAS. Um núcleo "
+                                    "costuma ter duas: ['COMPENSA','AÇÃO COMPENSA']."),
+                },
                 "base": {
                     "type": "string", "enum": ["conclusao", "criacao"],
                     "description": ("Como contar o mês. 'conclusao' (padrão) = tarefa "
@@ -524,7 +535,8 @@ SCHEMA = [
                     "type": "array", "items": {"type": "string"},
                     "description": "Opcional. Um ou mais nomes EXATOS de subtipo.",
                 },
-                "unidade": {"type": "string", "description": "Opcional."},
+                "unidade": {"type": "array", "items": {"type": "string"},
+                            "description": "Opcional. Uma ou mais unidades EXATAS."},
                 "meses": {"type": "integer",
                           "description": "Quantos meses na série (2 a 12). Padrão: 6."},
             },
