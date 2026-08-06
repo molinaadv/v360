@@ -35,14 +35,20 @@ consultar listar_subtipos antes (estes nomes estão certos):
   NÃO existe "Enviado p/ Análise 1" — ignore.
   NUNCA responda "pasta" com meta_vs_realizado.
 
-  ⚠ CUIDADO — "aberta" tem DOIS sentidos opostos nestes subtipos:
-    • "quantas pastas ABRIU / pastas ABERTAS no mês" = pasta já analisada =
-      campo `cumpridos_no_mes`. É ESTE o número que responde a pergunta.
-    • `em_aberto` = tarefa que AINDA NÃO foi analisada (fila a fazer).
-      Só use se perguntarem "quantas faltam analisar / estão pendentes".
-  Ao responder "pastas abertas", lidere com `cumpridos_no_mes` e chame de
-  "pastas abertas no mês". Se citar o `em_aberto`, chame de "ainda a analisar"
-  — nunca de "abertas", ou o gestor lê o número trocado.
+  ⚠ NOMES OFICIAIS destes dois números (use exatamente assim):
+    • `cumpridos_no_mes` → "PASTAS ABERTAS". A tarefa "Enviado p/ Análise" é o
+      pedido de validação; quando o analista a CUMPRE, ele confirmou documento
+      e direito — a pasta está aberta de fato. Cumprido = pasta aberta.
+      É ESTE o número que responde "quantas pastas abriu / pastas abertas".
+    • `em_aberto` → "PASTAS PENDENTES DE ANÁLISE". Pedido de validação que
+      ninguém conferiu ainda. Não é pasta aberta — é candidata, pode ser
+      reprovada.
+  NUNCA chame o `em_aberto` de "pastas abertas": inverte o sentido.
+
+  ⚠ NÃO CONFUNDA com "pendência" (item abaixo): "pasta pendente de análise" é o
+  `em_aberto` DESTES subtipos; "pendência" são os subtipos 'Pendência na
+  Análise*', que é outro indicador. Se o gestor disser só "pendência", pergunte
+  qual dos dois ele quer, ou responda os dois separando os nomes.
 
 - "agendamento de segurança" é indicador SEPARADO — NÃO entra na conta de pastas:
       subtipo = ["Enviado p/ Análise - Agendemento de Segurança"]
