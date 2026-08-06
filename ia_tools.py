@@ -15,6 +15,7 @@ vw_v360_metas_vs_meta) — herda a regra de negócio já validada.
 
 from __future__ import annotations
 
+import unicodedata
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -140,6 +141,12 @@ def _janela(periodo: str) -> tuple[datetime, datetime, str]:
     ini = hoje.replace(day=1)
     fim = (ini + timedelta(days=32)).replace(day=1)
     return ini, fim, f"{ini:%m/%Y}"
+
+
+def _sem_acento(t: str) -> str:
+    """Compara nome ignorando acento e caixa — o gestor digita sem acento."""
+    t = unicodedata.normalize("NFD", str(t or "").strip().lower())
+    return "".join(c for c in t if unicodedata.category(c) != "Mn")
 
 
 def _escopo(unidades, unidade):
@@ -426,6 +433,111 @@ def serie_mensal(unidades, base: str = "conclusao", subtipo=None,
     }
 
 
+VIEW_INDICADORES = "v360_indicadores"
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _catalogo() -> dict:
+    """Catálogo de indicadores do Supabase (24 indicadores / 176 subtipos).
+
+    Fica no banco, não no prompt: subtipo novo é INSERT, sem redeploy, e o
+    prompt não engorda a cada indicador.
+    """
+    linhas = (_sb().table(VIEW_INDICADORES)
+              .select("indicador,area,etapa,base,statuses,subtipos,observacao")
+              .execute().data) or []
+    return {l["indicador"]: l for l in linhas}
+
+
+def _achar_indicador(nome: str) -> dict | None:
+    cat = _catalogo()
+    if nome in cat:
+        return cat[nome]
+    alvo = _sem_acento(nome)
+    for k, v in cat.items():                      # tolera acento/caixa
+        if _sem_acento(k) == alvo:
+            return v
+    for k, v in cat.items():                      # tolera nome parcial
+        if alvo and alvo in _sem_acento(k):
+            return v
+    return None
+
+
+def contar_indicador(unidades, indicador: str, unidade=None) -> dict:
+    """Conta um INDICADOR do catálogo (subtipos, status e base vêm do banco).
+
+    Use esta função para qualquer indicador oficial do escritório. Ela resolve
+    sozinha quais subtipos entram e se o período conta por conclusão ou por
+    cadastro — o modelo não precisa saber nem acertar 176 nomes.
+    """
+    cfg = _achar_indicador(indicador)
+    if not cfg:
+        cat = sorted(_catalogo())
+        return {"erro": f"indicador '{indicador}' não existe no catálogo",
+                "indicadores_disponiveis": cat[:30]}
+
+    esc = _escopo(unidades, unidade)
+    subtipos, statuses, base = cfg["subtipos"], cfg["statuses"], cfg["base"]
+    campo = "data_conclusao" if base == "conclusao" else "creation_date"
+    agora = datetime.now(TZ)
+    ini_mes, prox_mes = _inicio_mes(agora), _mes_desloc(agora, 1)
+    ini_ant = _mes_desloc(agora, -1)
+
+    def contar(ini, fim):
+        q = _subtipo_filtro(_aplicar_recorte(
+            _sb().table(VIEW_TASKS).select("id", count="exact"), esc), subtipos)
+        return (q.in_("status_nome", statuses)
+                 .gte(campo, ini.isoformat()).lt(campo, fim.isoformat())
+                 .limit(1).execute().count or 0)
+
+    no_mes = contar(ini_mes, prox_mes)
+    corte = min(ini_ant + (agora - ini_mes), ini_mes)
+    ant_parcial = contar(ini_ant, corte)
+    ant_cheio = contar(ini_ant, ini_mes)
+
+    # estoque total do indicador (sem recorte de data) — só faz sentido quando
+    # o indicador é de status aberto: é a fila acumulada, não a do mês
+    q = _subtipo_filtro(_aplicar_recorte(
+        _sb().table(VIEW_TASKS).select("id", count="exact"), esc), subtipos)
+    acumulado = q.in_("status_nome", statuses).limit(1).execute().count or 0
+
+    rotulo = ("cumpridas no mês" if base == "conclusao" else "cadastradas no mês")
+    return {
+        "indicador": cfg["indicador"],
+        "area": cfg["area"], "etapa": cfg["etapa"],
+        "mes": ini_mes.strftime("%Y-%m"),
+        "no_mes": no_mes,
+        "rotulo_no_mes": rotulo,
+        "acumulado_total": acumulado,
+        "rotulo_acumulado": ("total já cumprido (histórico)" if base == "conclusao"
+                             else "fila acumulada (todos os meses)"),
+        "criterio": {"subtipos": len(subtipos), "status": statuses,
+                     "conta_por": campo},
+        "comparacao": {
+            "mes_anterior_mesmo_periodo": ant_parcial,
+            "mes_anterior_fechado": ant_cheio,
+            **_variacao(no_mes, ant_parcial),
+            "nota": (f"mês em andamento (dia {agora.day}); compara com os "
+                     f"{ant_parcial} do mesmo período do mês anterior"),
+        },
+        "observacao": cfg.get("observacao"),
+        "fonte": {"view": VIEW_TASKS,
+                  "regra": f"{campo} · {cfg['indicador']} · America/Manaus"},
+    }
+
+
+def listar_indicadores(unidades, contem: str = "") -> dict:
+    """Nomes EXATOS dos indicadores do catálogo. Use quando não tiver certeza."""
+    cat = _catalogo()
+    alvo = _sem_acento(contem)
+    achados = [{"indicador": k, "etapa": v["etapa"], "area": v["area"],
+                "conta_por": ("conclusão" if v["base"] == "conclusao" else "cadastro")}
+               for k, v in sorted(cat.items())
+               if not alvo or alvo in _sem_acento(k) or alvo in _sem_acento(v["etapa"])]
+    return {"busca": contem or "(todos)", "total": len(achados),
+            "indicadores": achados}
+
+
 def listar_subtipos(unidades, contem: str = "") -> dict:
     """Subtipos batem letra por letra. A IA usa isto antes de contar quando não
     tem certeza do nome exato (evita devolver 0 por causa de um acento)."""
@@ -452,6 +564,8 @@ REGISTRO = {
     "agenda_semana": agenda_semana,
     "meta_vs_realizado": meta_vs_realizado,
     "serie_mensal": serie_mensal,
+    "contar_indicador": contar_indicador,
+    "listar_indicadores": listar_indicadores,
     "listar_subtipos": listar_subtipos,
 }
 
@@ -540,6 +654,34 @@ SCHEMA = [
                 "meses": {"type": "integer",
                           "description": "Quantos meses na série (2 a 12). Padrão: 6."},
             },
+        },
+    },
+    {
+        "name": "contar_indicador",
+        "description": ("Conta um INDICADOR OFICIAL do escritório no mês, já com a "
+                        "comparação com o mês anterior. A função resolve sozinha "
+                        "quais subtipos entram e se conta por conclusão ou por "
+                        "cadastro — NÃO passe subtipos. Use SEMPRE que a pergunta "
+                        "citar um indicador da lista do prompt."),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "indicador": {"type": "string",
+                              "description": "Nome do indicador, ex.: 'Denúncia'."},
+                "unidade": {"type": "array", "items": {"type": "string"},
+                            "description": "Opcional. Uma ou mais unidades EXATAS."},
+            },
+            "required": ["indicador"],
+        },
+    },
+    {
+        "name": "listar_indicadores",
+        "description": ("Nomes exatos dos indicadores do catálogo, com etapa e "
+                        "critério. Use quando não tiver certeza do nome."),
+        "input_schema": {
+            "type": "object",
+            "properties": {"contem": {"type": "string",
+                                      "description": "Filtro por texto, ex.: 'confecção'."}},
         },
     },
     {
