@@ -335,7 +335,10 @@ def _render(bloco: dict, idx: int = 0):
     figs = _graficos(bloco.get("dado") or {})
     if figs:
         cfg = {"displayModeBar": False}
-        colunas = st.columns(len(figs)) if len(figs) > 1 else [st]
+        # st.columns() para 2+; para 1, um container. NUNCA `[st]`: o módulo
+        # streamlit não é context manager e o `with col:` estourava TypeError.
+        colunas = (st.columns(len(figs)) if len(figs) > 1
+                   else [st.container()])
         for i, ((titulo, fig), col) in enumerate(zip(figs, colunas)):
             with col:
                 st.markdown(
