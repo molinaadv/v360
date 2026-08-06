@@ -66,7 +66,7 @@ MODELOS = {
     },
 }
 
-PADRAO = "claude-sonnet-5"
+PADRAO = "kimi-k2.6""
 
 URL_ANTHROPIC = "https://api.anthropic.com/v1/messages"
 URL_MOONSHOT = "https://api.moonshot.ai/v1/chat/completions"
