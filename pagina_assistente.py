@@ -72,7 +72,7 @@ SYSTEM = """Você é o assistente do V360, painel interno da Molina Advogados (d
 Você responde a advogados e gestores do escritório sobre os dados operacionais.
 
 REGRAS:
-- Todo número vem das funções. Você NUNCA estima, arredonda de cabeça ou inventa um valor. Se não tem função pra pergunta, diga o que não consegue responder e sugira o painel certo.
+- Todo número vem das funções. Você NUNCA estima, arredonda de cabeça ou inventa um valor. Copie os valores EXATOS do resultado — se a função devolveu 13, escreva 13, nunca outro número. Percentual só se vier pronto no campo `variacao_pct`; não calcule de cabeça. Se não tem função pra pergunta, diga o que não consegue responder e sugira o painel certo.
 - Os nomes de subtipo batem letra por letra. Se não tiver certeza do nome exato, chame listar_subtipos ANTES de contar. Nunca chute o nome.
 - "Em aberto" = Pendente, Não cumprido ou Iniciado. "Cumprido no mês" usa mes_conclusao.
 - Crédito de produtividade é de quem CONCLUIU (usuario_executor), nunca do responsável.
@@ -115,6 +115,9 @@ CSS = """
   .ia-src{margin-top:12px;padding-top:10px;border-top:1px solid #26324d;font-size:10.5px;color:#6b7a99}
   .ia-src .tag{background:#0f1728;border:1px solid #26324d;padding:3px 8px;
     border-radius:7px;font-family:ui-monospace,monospace;margin-right:6px}
+  .ia-alerta{background:#2a1520;border:1px solid #7a3348;color:#ef7a7a;
+    border-radius:12px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.5}
+  .ia-alerta b{color:#ff9aa8}
 </style>
 """
 
@@ -168,12 +171,25 @@ def _fonte(dado: dict, modelo: str, uso: dict) -> str:
     return f'<div class="ia-src">Fonte: {tags} · Legal One API · consultado {hora}</div>'
 
 
+def _alerta(suspeitos: list) -> str:
+    """Número no texto que não veio do banco. Não some com a resposta: mostra
+    e deixa o humano julgar."""
+    if not suspeitos:
+        return ""
+    n = ", ".join(str(x) for x in suspeitos)
+    return (f'<div class="ia-alerta"><b>⚠ Conferir:</b> o texto cita '
+            f'<b>{n}</b>, que não veio da consulta. Confie nos cartões e na '
+            f'fonte abaixo, não na frase.</div>')
+
+
 def _render(bloco: dict):
     for t in bloco.get("tracos", []):
         st.markdown(f'<div class="ia-trace">consultou <b>{t}</b></div>',
                     unsafe_allow_html=True)
     if bloco.get("kpis"):
         st.markdown(bloco["kpis"], unsafe_allow_html=True)
+    if bloco.get("alerta"):
+        st.markdown(bloco["alerta"], unsafe_allow_html=True)
     st.markdown(bloco["texto"])
     if bloco.get("fonte"):
         st.markdown(bloco["fonte"], unsafe_allow_html=True)
@@ -234,6 +250,7 @@ def render(unidades, rotulo_recorte: str = ""):
 
         bloco = {"quem": "ia", "texto": r["texto"] or "Sem resposta.",
                  "tracos": r["tracos"],
+                 "alerta": _alerta(r.get("suspeitos") or []),
                  "kpis": _kpis(r["ultimo_dado"]),
                  "fonte": _fonte(r["ultimo_dado"], r["modelo"], r["uso"])}
         _render(bloco)
