@@ -281,6 +281,7 @@ def conversar(historico: list, system: str, unidades, segredos,
 
     chamar = _DESPACHO[cfg["provedor"]]
     tracos, ultimo_dado, uso = [], {}, {}
+    feitas: set = set()          # assinaturas já executadas nesta pergunta
     texto = ""
 
     for _ in range(MAX_VOLTAS):
@@ -302,7 +303,16 @@ def conversar(historico: list, system: str, unidades, segredos,
 
         resultados = []
         for c in r["chamadas"]:
-            dado = ia_tools.executar(c["nome"], c["args"], unidades)
+            assinatura = (c["nome"], json.dumps(c["args"], sort_keys=True))
+            if assinatura in feitas:
+                # o modelo repetiu a MESMA chamada. Sem isto ele insiste até o
+                # teto de voltas e o usuário recebe "consultei demais".
+                dado = {"erro": "chamada idêntica já feita nesta pergunta — o "
+                                "resultado não muda. Use outra função ou outros "
+                                "argumentos, ou responda com o que já tem."}
+            else:
+                feitas.add(assinatura)
+                dado = ia_tools.executar(c["nome"], c["args"], unidades)
             if "erro" not in dado:
                 ultimo_dado = dado
             args_txt = ", ".join(f'"{v}"' for v in c["args"].values()) or "—"

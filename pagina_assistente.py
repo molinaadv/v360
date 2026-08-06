@@ -10,7 +10,7 @@ Trocar de modelo (Claude / Kimi) não muda nada deste arquivo além do seletor.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
@@ -19,6 +19,17 @@ import streamlit as st
 import ia_modelo
 
 TZ = ZoneInfo("America/Manaus")
+
+VOCABULARIO = """
+VOCABULÁRIO DO ESCRITÓRIO (o gestor fala assim; a base não):
+- "pasta aberta" / "abriu pasta" = tarefa dos subtipos 'Enviado p/ Análise' e
+  'Enviado p/ Análise ADM' (Cível usa 'Enviado p/ Análise Cível'). NÃO é meta.
+- "pastas a analisar" = os mesmos subtipos ainda em aberto.
+- "meta" = só quando falarem explicitamente de meta/objetivo do mês → meta_vs_realizado.
+- "pendência" = subtipos que começam com 'Pendência na Análise'.
+- Nome de unidade é MAIÚSCULO na base: "atrium" → "ATRIUM".
+Na dúvida sobre o nome exato, chame listar_subtipos ANTES de contar.
+"""
 
 SYSTEM = """Você é o assistente do V360, painel interno da Molina Advogados (direito previdenciário, Manaus/AM).
 
@@ -36,6 +47,8 @@ REGRAS:
 - Você só enxerga as unidades do usuário logado. Isso já é aplicado automaticamente — não peça permissão nem tente contornar.
 - Você NÃO tem acesso a CPF, número de benefício, senha do INSS, telefone ou endereço de cliente. Esses dados ficam no campo notes do Legal One e estão fora do seu escopo por segurança. Se pedirem, explique isso em uma frase e diga que a consulta deve ser feita direto no Legal One.
 - Você não dá parecer jurídico, não prevê resultado de processo e não estima valores.
+- NUNCA repita uma chamada de função idêntica. Se o resultado veio vazio, o problema é o argumento (nome do subtipo, mês, unidade) — corrija o argumento ou use outra função. Repetir igual devolve o mesmo vazio.
+- Se uma função devolver vazio ou "sem meta cadastrada", diga isso ao usuário em vez de insistir.
 
 COMPARAÇÃO (sempre):
 - Toda resposta com quantidade do mês vem acompanhada da comparação com o mês anterior. O contar_em_aberto já devolve isso no campo "comparacao"; para tendência de vários meses use serie_mensal.
@@ -66,6 +79,18 @@ CSS = """
     border-radius:7px;font-family:ui-monospace,monospace;margin-right:6px}
 </style>
 """
+
+
+def _system() -> str:
+    """Prompt + data de HOJE. Sem isso o modelo chuta o mês (chegou a consultar
+    2025-01) — ele não tem relógio."""
+    hoje = datetime.now(TZ)
+    dias = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
+    return (f"{SYSTEM}\n{VOCABULARIO}\n"
+            f"HOJE é {dias[hoje.weekday()]}, {hoje:%d/%m/%Y}, em Manaus. "
+            f"O mês corrente é {hoje:%Y-%m} e está EM ANDAMENTO. "
+            f"Quando o usuário disser 'este mês', use {hoje:%Y-%m}; "
+            f"'mês passado' é {(hoje.replace(day=1) - timedelta(days=1)):%Y-%m}.")
 
 
 def _kpis(dado: dict) -> str:
@@ -161,7 +186,7 @@ def render(unidades, rotulo_recorte: str = ""):
     with st.chat_message("assistant"):
         try:
             with st.spinner("consultando a base…"):
-                r = ia_modelo.conversar(st.session_state.ia_hist, SYSTEM,
+                r = ia_modelo.conversar(st.session_state.ia_hist, _system(),
                                         unidades, st.secrets, modelo)
         except requests.HTTPError as e:
             r = {"texto": f"A API recusou a chamada ({e.response.status_code}). "
