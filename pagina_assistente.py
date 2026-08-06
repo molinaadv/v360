@@ -198,16 +198,25 @@ def _layout(fig, altura: int):
     return fig
 
 
-def _grafico(dado: dict):
-    """Monta o gráfico a partir do RESULTADO DA CONSULTA — nunca do texto do
-    modelo. Se o modelo errar um número na frase, o gráfico continua certo."""
+# rótulo curto: em meia largura, "PREVIDENCIÁRIO ADMINISTRATIVO" come o gráfico
+CURTO = {"PREVIDENCIÁRIO JUDICIAL": "Prev. Judicial",
+         "PREVIDENCIÁRIO ADMINISTRATIVO": "Prev. Administrativo",
+         "AGENDAMENTO DE SEGURANÇA": "Agend. Segurança",
+         "CÍVEL": "Cível", "TRABALHISTA": "Trabalhista"}
+
+
+def _graficos(dado: dict) -> list:
+    """Lista de (título, figura) montada a partir do RESULTADO DA CONSULTA —
+    nunca do texto do modelo. Se o modelo errar um número na frase, o gráfico
+    continua certo. Pode devolver dois: quebra por área + comparativo."""
     if not dado:
-        return None
+        return []
+    saida = []
 
     # 1) quebra por área (pastas): barras horizontais, aberta x pendente
     areas = dado.get("por_area")
     if areas:
-        rot = [a["area"].title() for a in areas][::-1]
+        rot = [CURTO.get(a["area"], a["area"].title()) for a in areas][::-1]
         fig = go.Figure([
             go.Bar(y=rot, x=[a["cumpridas_no_mes"] for a in areas][::-1],
                    name="Abertas no mês", orientation="h",
@@ -219,7 +228,7 @@ def _grafico(dado: dict):
                    textposition="outside", cliponaxis=False),
         ])
         fig.update_layout(barmode="group")
-        return _layout(fig, 90 + 46 * len(areas))
+        saida.append(("Por área", _layout(fig, 90 + 46 * len(areas))))
 
     # 2) série mensal: barras por mês, o corrente (parcial) mais apagado
     meses = dado.get("meses")
@@ -231,20 +240,23 @@ def _grafico(dado: dict):
             x=[m["mes"] for m in meses], y=[m["qtd"] for m in meses],
             marker_color=cores, text=[m["qtd"] for m in meses],
             textposition="outside", cliponaxis=False, showlegend=False)])
-        return _layout(fig, 260)
+        saida.append(("Evolução mensal", _layout(fig, 260)))
 
-    # 3) só a comparação: mês atual x mesmo período do anterior
+    # 3) comparativo: este mês x MESMO PERÍODO do mês anterior (o mês corrente
+    #    não fechou; comparar com o mês cheio inventaria uma queda)
     comp = dado.get("comparacao") or {}
     if "mes_anterior_mesmo_periodo" in comp and "cumpridos_no_mes" in dado:
+        ant, atual = comp["mes_anterior_mesmo_periodo"], dado["cumpridos_no_mes"]
         fig = go.Figure([go.Bar(
-            x=["Mesmo período<br>do mês anterior", "Este mês"],
-            y=[comp["mes_anterior_mesmo_periodo"], dado["cumpridos_no_mes"]],
-            marker_color=[CORES["neutro"], CORES["aberta"]],
-            text=[comp["mes_anterior_mesmo_periodo"], dado["cumpridos_no_mes"]],
+            x=["Mês anterior<br>(mesmo período)", "Este mês"], y=[ant, atual],
+            marker_color=[CORES["neutro"], CORES["aberta"]], text=[ant, atual],
             textposition="outside", cliponaxis=False, showlegend=False)])
-        return _layout(fig, 240)
+        pct = comp.get("variacao_pct")
+        titulo = "Comparativo" + (f" · {pct:+d}%" if isinstance(pct, int) else "")
+        alt = 90 + 46 * len(areas) if areas else 240
+        saida.append((titulo, _layout(fig, alt)))
 
-    return None
+    return saida
 
 
 def _alerta(suspeitos: list) -> str:
@@ -268,11 +280,18 @@ def _render(bloco: dict, idx: int = 0):
     if bloco.get("alerta"):
         st.markdown(bloco["alerta"], unsafe_allow_html=True)
     st.markdown(bloco["texto"])
-    fig = _grafico(bloco.get("dado") or {})
-    if fig is not None:
-        st.plotly_chart(fig, use_container_width=True,
-                        config={"displayModeBar": False},
-                        key=f"ia_graf_{idx}")
+    figs = _graficos(bloco.get("dado") or {})
+    if figs:
+        cfg = {"displayModeBar": False}
+        colunas = st.columns(len(figs)) if len(figs) > 1 else [st]
+        for i, ((titulo, fig), col) in enumerate(zip(figs, colunas)):
+            with col:
+                st.markdown(
+                    f'<div style="font-size:10.5px;color:#6b7a99;'
+                    f'text-transform:uppercase;letter-spacing:.6px;'
+                    f'margin:6px 0 -6px">{titulo}</div>', unsafe_allow_html=True)
+                st.plotly_chart(fig, use_container_width=True, config=cfg,
+                                key=f"ia_graf_{idx}_{i}")
     if bloco.get("fonte"):
         st.markdown(bloco["fonte"], unsafe_allow_html=True)
 
