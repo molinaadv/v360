@@ -219,7 +219,8 @@ def _post(url: str, headers: dict, corpo: dict) -> dict:
     return r.json()
 
 
-def _chamar_anthropic(historico, system, chave, modelo, cache, extra=None) -> dict:
+def _chamar_anthropic(historico, system, chave, modelo, cache, extra=None,
+                      so_texto: bool = False) -> dict:
     sistema = ([{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
                if cache else system)
     resp = _post(URL_ANTHROPIC,
@@ -227,6 +228,7 @@ def _chamar_anthropic(historico, system, chave, modelo, cache, extra=None) -> di
                   "content-type": "application/json"},
                  {"model": modelo, "max_tokens": MAX_SAIDA, "system": sistema,
                   "tools": _tools_anthropic(cache),
+                  **({"tool_choice": {"type": "none"}} if so_texto else {}),
                   "messages": _neutro_para_anthropic(historico)})
 
     texto = "".join(b["text"] for b in resp["content"] if b["type"] == "text")
@@ -236,10 +238,13 @@ def _chamar_anthropic(historico, system, chave, modelo, cache, extra=None) -> di
             "motivo": resp.get("stop_reason"), "uso": resp.get("usage", {})}
 
 
-def _chamar_moonshot(historico, system, chave, modelo, _cache, extra=None) -> dict:
+def _chamar_moonshot(historico, system, chave, modelo, _cache, extra=None,
+                     so_texto: bool = False) -> dict:
     corpo = {"model": modelo, "max_tokens": MAX_SAIDA,
              "tools": _tools_openai(),
              "messages": _neutro_para_openai(historico, system)}
+    if so_texto:
+        corpo["tool_choice"] = "none"
     corpo.update(extra or {})
     resp = _post(URL_MOONSHOT,
                  {"Authorization": f"Bearer {chave}",
@@ -324,10 +329,17 @@ def conversar(historico: list, system: str, unidades, segredos,
             resultados.append({"id": c["id"], "nome": c["nome"], "dado": dado})
         historico.append({"quem": "tool", "resultados": resultados})
         if not novas:
-            # rodada inteira repetida: insistir só gasta token e tempo
-            texto = ("Não consegui fechar a resposta — o modelo ficou repetindo "
-                     "a mesma consulta. Tente perguntar de forma mais específica "
-                     "(nome do assunto, unidade ou período).")
+            # Rodada inteira repetida. O dado JÁ está no histórico — insistir não
+            # traz nada novo. Uma última chamada com tool_choice=none obriga o
+            # modelo a redigir com o que tem. (Antes isto abortava e jogava fora
+            # uma resposta pronta.)
+            r = chamar(podar(historico), system, chave, cfg["modelo"], cache,
+                       cfg.get("extra"), True)
+            historico.append({"quem": "ia", "texto": r["texto"], "chamadas": [],
+                              "raciocinio": r.get("raciocinio", "")})
+            uso = r["uso"] or uso
+            texto = r["texto"] or ("Consultei a base, mas o modelo não redigiu a "
+                                   "resposta. Os números estão nos cartões acima.")
             break
     else:
         texto = texto or "Consultei demais e não fechei a resposta. Refaça a pergunta mais específica."
