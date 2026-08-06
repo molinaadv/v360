@@ -135,12 +135,24 @@ CSS = """
 """
 
 
-def _system() -> str:
+def _bloco_unidades(nomes: list) -> str:
+    """Lista real de unidades no prompt. Sem isto o modelo não sabe se
+    'compensa' é unidade, área ou assunto — e para para perguntar."""
+    if not nomes:
+        return ""
+    return ("\nUNIDADES EXISTENTES NA BASE (nomes EXATOS, use como vieram):\n"
+            + ", ".join(nomes) +
+            "\nO gestor fala em minúsculo e sem 'ação' — traduza. Se o núcleo "
+            "tiver o par 'X' e 'AÇÃO X', mande OS DOIS na lista `unidade`, a não "
+            "ser que ele peça só um. O campo `unidade` é sempre LISTA.\n")
+
+
+def _system(nomes_unidades: list | None = None) -> str:
     """Prompt + data de HOJE. Sem isso o modelo chuta o mês (chegou a consultar
     2025-01) — ele não tem relógio."""
     hoje = datetime.now(TZ)
     dias = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
-    return (f"{SYSTEM}\n{VOCABULARIO}\n"
+    return (f"{SYSTEM}\n{VOCABULARIO}\n{_bloco_unidades(nomes_unidades or [])}"
             f"HOJE é {dias[hoje.weekday()]}, {hoje:%d/%m/%Y}, em Manaus. "
             f"O mês corrente é {hoje:%Y-%m} e está EM ANDAMENTO. "
             f"Quando o usuário disser 'este mês', use {hoje:%Y-%m}; "
@@ -304,7 +316,7 @@ def _render(bloco: dict, idx: int = 0):
         st.markdown(bloco["fonte"], unsafe_allow_html=True)
 
 
-def render(unidades, rotulo_recorte: str = ""):
+def render(unidades, rotulo_recorte: str = "", nomes_unidades: list | None = None):
     """Chamada pelo app.py. `unidades` = '*' ou lista (vem do auth.aplicar_recorte)."""
     st.markdown(CSS, unsafe_allow_html=True)
 
@@ -347,7 +359,8 @@ def render(unidades, rotulo_recorte: str = ""):
     with st.chat_message("assistant"):
         try:
             with st.spinner("consultando a base…"):
-                r = ia_modelo.conversar(st.session_state.ia_hist, _system(),
+                r = ia_modelo.conversar(st.session_state.ia_hist,
+                                        _system(nomes_unidades),
                                         unidades, st.secrets, modelo)
         except requests.HTTPError as e:
             r = {"texto": f"A API recusou a chamada ({e.response.status_code}). "
