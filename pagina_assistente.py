@@ -102,6 +102,16 @@ nome exato. NÃO passe subtipos: a função resolve os subtipos e o critério
 
 Se o gestor usar um termo que não está aqui, chame listar_indicadores com um
 trecho do termo antes de responder. Nunca invente indicador.
+
+FORMATO OBRIGATÓRIO da resposta de indicador — sempre os TRÊS, nesta ordem:
+  1. `criadas_no_mes`   — quantas ENTRARAM no mês
+  2. `cumpridas_no_mes` — quantas foram CONCLUÍDAS no mês
+  3. `em_aberto_total`  — a fila acumulada (todos os meses, não só o corrente)
+Depois, UMA frase com a coorte (campo `coorte_do_mes.leitura`): das que entraram,
+quantas já saíram e quantas seguem abertas. Nunca responda só um dos três — o
+gestor precisa do fluxo inteiro, não de um número solto.
+Se `em_aberto_total` for muito maior que `criadas_no_mes` (mais de 6x), diga que
+há acúmulo antigo e que pode haver status preso (vale rodar o Re-sync).
 - "meta" / "bateu a meta": aí sim meta_vs_realizado.
 
 O campo `subtipo` é sempre uma LISTA, mesmo com um nome só.
@@ -194,7 +204,11 @@ def _system(nomes_unidades: list | None = None) -> str:
 def _kpis(dado: dict) -> str:
     """Cartões grandes quando a função devolve contagem. Cor semântica do projeto."""
     cards = []
-    if "em_aberto" in dado and "no_mes" in dado:
+    if "criadas_no_mes" in dado:                     # indicador do catálogo
+        cards = [("#4fb0e8", dado["criadas_no_mes"], "criadas no mês"),
+                 ("#2fce8f", dado["cumpridas_no_mes"], "cumpridas no mês"),
+                 ("#f5a524", dado["em_aberto_total"], "em aberto (fila)")]
+    elif "em_aberto" in dado and "no_mes" in dado:
         cards = [("#2fce8f", dado["no_mes"], dado.get("rotulo_no_mes", "no mês")),
                  ("#f5a524", dado["em_aberto"], "em aberto"),
                  ("#8b7bff", dado["total"], "total")]
@@ -294,18 +308,34 @@ def _graficos(dado: dict) -> list:
             textposition="outside", cliponaxis=False, showlegend=False)])
         saida.append(("Evolução mensal", _layout(fig, 260)))
 
+    # 2b) coorte do mês: destino do que entrou (cumprido x ainda aberto)
+    co = dado.get("coorte_do_mes")
+    if co and co.get("criadas"):
+        fig = go.Figure([go.Bar(
+            x=["Já cumpridas", "Ainda abertas", "Canceladas"],
+            y=[co["ja_cumpridas"], co["ainda_abertas"], co.get("canceladas", 0)],
+            marker_color=[CORES["aberta"], CORES["pendente"], "#6b7a99"],
+            text=[co["ja_cumpridas"], co["ainda_abertas"], co.get("canceladas", 0)],
+            textposition="outside", cliponaxis=False, showlegend=False)])
+        saida.append((f"Das {co['criadas']} que entraram no mês", _layout(fig, 260)))
+
     # 3) comparativo: este mês x MESMO PERÍODO do mês anterior (o mês corrente
     #    não fechou; comparar com o mês cheio inventaria uma queda)
     comp = dado.get("comparacao") or {}
-    if "mes_anterior_mesmo_periodo" in comp and "no_mes" in dado:
+    if "criadas_mes_anterior_mesmo_periodo" in comp:
+        ant, atual = comp["criadas_mes_anterior_mesmo_periodo"], dado["criadas_no_mes"]
+    elif "mes_anterior_mesmo_periodo" in comp and "no_mes" in dado:
         ant, atual = comp["mes_anterior_mesmo_periodo"], dado["no_mes"]
+    else:
+        ant = atual = None
+    if ant is not None:
         fig = go.Figure([go.Bar(
             x=["Mês anterior<br>(mesmo período)", "Este mês"], y=[ant, atual],
             marker_color=[CORES["neutro"], CORES["aberta"]], text=[ant, atual],
             textposition="outside", cliponaxis=False, showlegend=False)])
         pct = comp.get("variacao_pct")
         titulo = "Comparativo" + (f" · {pct:+d}%" if isinstance(pct, int) else "")
-        alt = 90 + 46 * len(areas) if areas else 240
+        alt = 90 + 46 * len(areas) if areas else 260
         saida.append((titulo, _layout(fig, alt)))
 
     return saida
