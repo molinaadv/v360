@@ -196,7 +196,8 @@ def _variacao(atual: int, anterior: int) -> dict:
 # funções expostas à IA
 # ─────────────────────────────────────────────────────────────────────────────
 
-def contar_em_aberto(unidades, subtipo, unidade: str | None = None) -> dict:
+def contar_em_aberto(unidades, subtipo, unidade: str | None = None,
+                     base: str = "conclusao") -> dict:
     """Em aberto (Pendente/Não cumprido/Iniciado) + cumpridos no mês, SEMPRE
     com a comparação vs. o mês anterior — o gestor não precisa pedir.
 
@@ -209,17 +210,25 @@ def contar_em_aberto(unidades, subtipo, unidade: str | None = None) -> dict:
     ini_ant = _mes_desloc(agora, -1)
     mes = ini_mes.strftime("%Y-%m")
 
+    # base de contagem do mês. Indicadores diferentes contam coisas diferentes:
+    #   conclusao → tarefa CUMPRIDA (ex.: pasta aberta = analista validou)
+    #   criacao   → tarefa CADASTRADA (ex.: enviada p/ confecção)
+    if base == "criacao":
+        campo, status, rotulo = "creation_date", None, "cadastradas no mês"
+    else:
+        campo, status, rotulo = "data_conclusao", "Cumprido", "cumpridas no mês"
+
     q = _subtipo_filtro(_aplicar_recorte(
         _sb().table(VIEW_TASKS).select("id", count="exact"), esc), subtipo)
     aberto = q.in_("status_nome", EM_ABERTO).limit(1).execute().count or 0
 
-    cumprido = _contar_periodo(VIEW_TASKS, esc, "data_conclusao",
-                               ini_mes, prox_mes, subtipo, "Cumprido")
-    ant_cheio = _contar_periodo(VIEW_TASKS, esc, "data_conclusao",
-                                ini_ant, ini_mes, subtipo, "Cumprido")
+    no_mes = _contar_periodo(VIEW_TASKS, esc, campo, ini_mes, prox_mes,
+                             subtipo, status)
+    ant_cheio = _contar_periodo(VIEW_TASKS, esc, campo, ini_ant, ini_mes,
+                                subtipo, status)
     corte = min(ini_ant + (agora - ini_mes), ini_mes)
-    ant_parcial = _contar_periodo(VIEW_TASKS, esc, "data_conclusao",
-                                  ini_ant, corte, subtipo, "Cumprido")
+    ant_parcial = _contar_periodo(VIEW_TASKS, esc, campo, ini_ant, corte,
+                                  subtipo, status)
 
     # quebra por subtipo (com rótulo da área) quando o indicador soma mais de um
     lista = [subtipo] if isinstance(subtipo, str) else list(subtipo or [])
@@ -232,8 +241,8 @@ def contar_em_aberto(unidades, subtipo, unidade: str | None = None) -> dict:
                 "area": ROTULOS.get(nome, nome),
                 "subtipo": nome,
                 "em_aberto": q1.in_("status_nome", EM_ABERTO).limit(1).execute().count or 0,
-                "cumpridas_no_mes": _contar_periodo(VIEW_TASKS, esc, "data_conclusao",
-                                                    ini_mes, prox_mes, nome, "Cumprido"),
+                "no_mes": _contar_periodo(VIEW_TASKS, esc, campo, ini_mes,
+                                          prox_mes, nome, status),
             })
 
     # quebra por status (revela "Iniciado" fantasma) e por unidade
@@ -244,27 +253,28 @@ def contar_em_aberto(unidades, subtipo, unidade: str | None = None) -> dict:
     por_unidade = (df["unidade_nome"].value_counts().head(5).to_dict()
                    if not df.empty else {})
 
-    total = aberto + cumprido
+    total = aberto + no_mes
     return {
         "subtipo": subtipo,
         "mes": mes,
         "em_aberto": aberto,
-        "cumpridos_no_mes": cumprido,
+        "no_mes": no_mes,
+        "rotulo_no_mes": rotulo,
         "total": total,
-        "pct_concluido": round(100 * cumprido / total) if total else 0,
+        "pct_concluido": round(100 * no_mes / total) if total else 0,
         "por_status": por_status,
         "por_unidade": por_unidade,
         **({"por_area": por_subtipo} if por_subtipo else {}),
         "comparacao": {
             "mes_anterior_mesmo_periodo": ant_parcial,
             "mes_anterior_fechado": ant_cheio,
-            **_variacao(cumprido, ant_parcial),
+            **_variacao(no_mes, ant_parcial),
             "nota": (f"mês em andamento (dia {agora.day}); a variação compara com "
                      f"os {ant_parcial} do mesmo período do mês anterior, "
                      f"não com o mês fechado ({ant_cheio})"),
         },
         "fonte": {"view": VIEW_TASKS,
-                  "regra": f"data_conclusao em {mes} · America/Manaus"},
+                  "regra": f"{campo} em {mes} · America/Manaus"},
     }
 
 
@@ -457,6 +467,13 @@ SCHEMA = [
                 },
                 "unidade": {"type": "string",
                             "description": "Opcional. Restringe a uma unidade, ex.: 'MANACAPURU'"},
+                "base": {
+                    "type": "string", "enum": ["conclusao", "criacao"],
+                    "description": ("Como contar o mês. 'conclusao' (padrão) = tarefa "
+                                    "CUMPRIDA no mês — use para PASTAS ABERTAS. "
+                                    "'criacao' = tarefa CADASTRADA no mês — use para "
+                                    "ENVIADAS P/ CONFECÇÃO."),
+                },
             },
             "required": ["subtipo"],
         },
