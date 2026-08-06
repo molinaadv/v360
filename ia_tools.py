@@ -418,8 +418,13 @@ SCHEMA = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "subtipo": {"type": "string",
-                            "description": "Nome exato do subtipo, ex.: 'Enviado ao Banco (Levantamento)'"},
+                "subtipo": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": ("Um ou mais nomes EXATOS de subtipo. Vários "
+                                    "indicadores somam mais de um, ex.: "
+                                    "['Enviado p/ Análise','Enviado p/ Análise ADM']. "
+                                    "Para um só, mande lista de um item."),
+                },
                 "unidade": {"type": "string",
                             "description": "Opcional. Restringe a uma unidade, ex.: 'MANACAPURU'"},
             },
@@ -433,7 +438,8 @@ SCHEMA = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "subtipo": {"type": "string", "description": "Opcional. Filtra por assunto."},
+                "subtipo": {"type": "array", "items": {"type": "string"},
+                            "description": "Opcional. Um ou mais nomes EXATOS de subtipo."},
                 "periodo": {"type": "string", "enum": ["hoje", "semana", "mes"],
                             "description": "Padrão: semana."},
             },
@@ -467,8 +473,10 @@ SCHEMA = [
             "properties": {
                 "base": {"type": "string", "enum": ["conclusao", "criacao"],
                          "description": "Padrão: conclusao."},
-                "subtipo": {"type": "string",
-                            "description": "Opcional. Nome exato do subtipo."},
+                "subtipo": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Opcional. Um ou mais nomes EXATOS de subtipo.",
+                },
                 "unidade": {"type": "string", "description": "Opcional."},
                 "meses": {"type": "integer",
                           "description": "Quantos meses na série (2 a 12). Padrão: 6."},

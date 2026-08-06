@@ -21,14 +21,23 @@ import ia_modelo
 TZ = ZoneInfo("America/Manaus")
 
 VOCABULARIO = """
-VOCABULÁRIO DO ESCRITÓRIO (o gestor fala assim; a base não):
-- "pasta aberta" / "abriu pasta" = tarefa dos subtipos 'Enviado p/ Análise' e
-  'Enviado p/ Análise ADM' (Cível usa 'Enviado p/ Análise Cível'). NÃO é meta.
-- "pastas a analisar" = os mesmos subtipos ainda em aberto.
-- "meta" = só quando falarem explicitamente de meta/objetivo do mês → meta_vs_realizado.
-- "pendência" = subtipos que começam com 'Pendência na Análise'.
-- Nome de unidade é MAIÚSCULO na base: "atrium" → "ATRIUM".
-Na dúvida sobre o nome exato, chame listar_subtipos ANTES de contar.
+VOCABULÁRIO DO ESCRITÓRIO — mapeamentos JÁ CONFIRMADOS. Use direto, sem
+consultar listar_subtipos antes (estes nomes estão certos):
+
+- "pasta" / "pasta aberta" / "abriu pasta" (previdenciário, o caso comum):
+      subtipo = ["Enviado p/ Análise", "Enviado p/ Análise ADM"]
+  Se disserem "cível", use ["Enviado p/ Análise Cível"].
+  NUNCA responda "pasta" com meta_vs_realizado.
+- "pendência": subtipo = ["Pendência na Análise", "Pendência na Análise - ADM",
+      "Pendência na Análise- Cível"]
+- "meta" / "bateu a meta": aí sim meta_vs_realizado.
+
+O campo `subtipo` é sempre uma LISTA, mesmo com um nome só.
+Unidade é MAIÚSCULA na base: "atrium" → "ATRIUM".
+
+listar_subtipos serve para assunto FORA desta lista. Se ele devolver vazio,
+tente um trecho MENOR (ex.: "Alvará" em vez de "Aguardando Levantamento do
+Alvará"). Não repita a mesma busca.
 """
 
 SYSTEM = """Você é o assistente do V360, painel interno da Molina Advogados (direito previdenciário, Manaus/AM).
