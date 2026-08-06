@@ -333,8 +333,14 @@ def conversar(historico: list, system: str, unidades, segredos,
             # traz nada novo. Uma última chamada com tool_choice=none obriga o
             # modelo a redigir com o que tem. (Antes isto abortava e jogava fora
             # uma resposta pronta.)
-            r = chamar(podar(historico), system, chave, cfg["modelo"], cache,
-                       cfg.get("extra"), True)
+            empurrao = {"quem": "user", "texto": (
+                "As consultas JÁ FORAM FEITAS e os resultados estão acima. "
+                "Responda AGORA a pergunta do usuário usando esses números. "
+                "Comece pelo número. NÃO descreva o que vai fazer, NÃO diga "
+                "'vou consultar' e NÃO peça mais consultas.")}
+            # vai só nesta chamada — não entra no histórico da sessão
+            r = chamar(podar(historico) + [empurrao], system, chave,
+                       cfg["modelo"], cache, cfg.get("extra"), True)
             historico.append({"quem": "ia", "texto": r["texto"], "chamadas": [],
                               "raciocinio": r.get("raciocinio", "")})
             uso = r["uso"] or uso
