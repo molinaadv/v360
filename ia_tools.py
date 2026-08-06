@@ -463,66 +463,96 @@ def _achar_indicador(nome: str) -> dict | None:
     return None
 
 
-def contar_indicador(unidades, indicador: str, unidade=None) -> dict:
-    """Conta um INDICADOR do catálogo (subtipos, status e base vêm do banco).
+CUMPRIDO = "Cumprido"
+CANCELADO = "Cancelado"
 
-    Use esta função para qualquer indicador oficial do escritório. Ela resolve
-    sozinha quais subtipos entram e se o período conta por conclusão ou por
-    cadastro — o modelo não precisa saber nem acertar 176 nomes.
+
+def _bloco_padrao(esc, subtipos, agora) -> dict:
+    """Estrutura PADRÃO de todo indicador (definida pelo escritório):
+
+      1. quantas ENTRARAM no mês (cadastradas, por creation_date);
+      2. dessa mesma safra: quantas seguem em aberto, quantas foram cumpridas
+         e quantas foram canceladas — os três somam exatamente as cadastradas,
+         então o gestor consegue conferir a conta de cabeça;
+      3. quantas foram CUMPRIDAS no mês (por data_conclusao), de qualquer safra
+         — é a entrega do mês, não a da safra;
+      4. a fila acumulada (tudo em aberto, de qualquer data).
+
+    Sem o item 3 o número de entrega fica escondido; sem o item 4 a fila velha
+    some da vista. Foi por isso que "1.509 acumuladas" não aparecia junto das
+    "106 do mês".
+    """
+    ini_mes, prox_mes = _inicio_mes(agora), _mes_desloc(agora, 1)
+    ini_ant = _mes_desloc(agora, -1)
+    corte_ant = min(ini_ant + (agora - ini_mes), ini_mes)
+
+    def q0():
+        return _subtipo_filtro(_aplicar_recorte(
+            _sb().table(VIEW_TASKS).select("id", count="exact"), esc), subtipos)
+
+    def periodo(campo, ini, fim, status=None):
+        q = q0()
+        if status:
+            q = (q.in_("status_nome", status) if isinstance(status, list)
+                 else q.eq("status_nome", status))
+        return (q.gte(campo, ini.isoformat()).lt(campo, fim.isoformat())
+                 .limit(1).execute().count or 0)
+
+    cad = periodo("creation_date", ini_mes, prox_mes)
+    safra_ab = periodo("creation_date", ini_mes, prox_mes, EM_ABERTO)
+    safra_cu = periodo("creation_date", ini_mes, prox_mes, CUMPRIDO)
+    safra_ca = periodo("creation_date", ini_mes, prox_mes, CANCELADO)
+    cump = periodo("data_conclusao", ini_mes, prox_mes, CUMPRIDO)
+
+    cad_ant = periodo("creation_date", ini_ant, corte_ant)
+    cump_ant = periodo("data_conclusao", ini_ant, corte_ant, CUMPRIDO)
+    fila = q0().in_("status_nome", EM_ABERTO).limit(1).execute().count or 0
+
+    v_cri = _variacao(cad, cad_ant)
+    return {
+        "mes": ini_mes.strftime("%Y-%m"),
+        "criadas_no_mes": cad,
+        "cumpridas_no_mes": cump,
+        "em_aberto_total": fila,
+        "coorte_do_mes": {
+            "criadas": cad, "ja_cumpridas": safra_cu,
+            "ainda_abertas": safra_ab, "canceladas": safra_ca,
+            "leitura": (f"das {cad} que entraram no mês, {safra_cu} já foram "
+                        f"cumpridas e {safra_ab} seguem abertas"
+                        + (f" ({safra_ca} canceladas)" if safra_ca else "")),
+        },
+        "comparacao": {
+            "criadas_mes_anterior_mesmo_periodo": cad_ant,
+            "cumpridas_mes_anterior_mesmo_periodo": cump_ant,
+            **v_cri,
+            "variacao_cumpridas": _variacao(cump, cump_ant).get("variacao_pct"),
+            "nota": (f"mês em andamento (dia {agora.day}); compara com o mesmo "
+                     f"período do mês anterior, não com o mês fechado"),
+        },
+    }
+
+
+def contar_indicador(unidades, indicador: str, unidade=None) -> dict:
+    """Conta um INDICADOR do catálogo, no formato padrão do escritório.
+
+    Os subtipos vêm do banco (v360_indicadores) — o modelo não precisa saber
+    nem acertar os 174 nomes.
     """
     cfg = _achar_indicador(indicador)
     if not cfg:
-        cat = sorted(_catalogo())
         return {"erro": f"indicador '{indicador}' não existe no catálogo",
-                "indicadores_disponiveis": cat[:30]}
+                "indicadores_disponiveis": sorted(_catalogo())[:30]}
 
     esc = _escopo(unidades, unidade)
-    subtipos, statuses, base = cfg["subtipos"], cfg["statuses"], cfg["base"]
-    campo = "data_conclusao" if base == "conclusao" else "creation_date"
-    agora = datetime.now(TZ)
-    ini_mes, prox_mes = _inicio_mes(agora), _mes_desloc(agora, 1)
-    ini_ant = _mes_desloc(agora, -1)
-
-    def contar(ini, fim):
-        q = _subtipo_filtro(_aplicar_recorte(
-            _sb().table(VIEW_TASKS).select("id", count="exact"), esc), subtipos)
-        return (q.in_("status_nome", statuses)
-                 .gte(campo, ini.isoformat()).lt(campo, fim.isoformat())
-                 .limit(1).execute().count or 0)
-
-    no_mes = contar(ini_mes, prox_mes)
-    corte = min(ini_ant + (agora - ini_mes), ini_mes)
-    ant_parcial = contar(ini_ant, corte)
-    ant_cheio = contar(ini_ant, ini_mes)
-
-    # estoque total do indicador (sem recorte de data) — só faz sentido quando
-    # o indicador é de status aberto: é a fila acumulada, não a do mês
-    q = _subtipo_filtro(_aplicar_recorte(
-        _sb().table(VIEW_TASKS).select("id", count="exact"), esc), subtipos)
-    acumulado = q.in_("status_nome", statuses).limit(1).execute().count or 0
-
-    rotulo = ("cumpridas no mês" if base == "conclusao" else "cadastradas no mês")
+    dados = _bloco_padrao(esc, cfg["subtipos"], datetime.now(TZ))
     return {
-        "indicador": cfg["indicador"],
-        "area": cfg["area"], "etapa": cfg["etapa"],
-        "mes": ini_mes.strftime("%Y-%m"),
-        "no_mes": no_mes,
-        "rotulo_no_mes": rotulo,
-        "acumulado_total": acumulado,
-        "rotulo_acumulado": ("total já cumprido (histórico)" if base == "conclusao"
-                             else "fila acumulada (todos os meses)"),
-        "criterio": {"subtipos": len(subtipos), "status": statuses,
-                     "conta_por": campo},
-        "comparacao": {
-            "mes_anterior_mesmo_periodo": ant_parcial,
-            "mes_anterior_fechado": ant_cheio,
-            **_variacao(no_mes, ant_parcial),
-            "nota": (f"mês em andamento (dia {agora.day}); compara com os "
-                     f"{ant_parcial} do mesmo período do mês anterior"),
-        },
+        "indicador": cfg["indicador"], "area": cfg["area"], "etapa": cfg["etapa"],
+        **dados,
+        "definicao_do_catalogo": {"subtipos": len(cfg["subtipos"]),
+                                  "status_do_indicador": cfg["statuses"]},
         "observacao": cfg.get("observacao"),
         "fonte": {"view": VIEW_TASKS,
-                  "regra": f"{campo} · {cfg['indicador']} · America/Manaus"},
+                  "regra": f"{cfg['indicador']} · America/Manaus"},
     }
 
 
