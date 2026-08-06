@@ -57,6 +57,21 @@ COLS_TIMESTAMP = [
     "data_conclusao", "publish_date", "start_datetime",
 ]
 
+# ---------------------------------------------------------------------
+# JANELA DE CARGA  (o que segura o boot no Streamlit Cloud)
+# ---------------------------------------------------------------------
+# O Community Cloud derruba o app se o script não responder ao health check
+# em 60s. Puxar a vw_tasks_completa inteira no boot estourava isso conforme a
+# base crescia. Aqui a carga vira: últimos JANELA_DIAS por creation_date,
+# MAIS todas as tarefas em aberto (de qualquer idade), para as pendências
+# continuarem corretas.
+#
+# Se algum relatório precisar de mais histórico, NÃO aumente muito este número:
+# agregue no Postgres (view) em vez de trazer linha para o pandas.
+JANELA_DIAS = 90
+MAX_LINHAS = 60_000                      # teto duro por consulta
+EM_ABERTO = ("Pendente", "Não cumprido", "Iniciado")
+
 
 # ---------------------------------------------------------------------
 # CONEXÃO
@@ -75,21 +90,48 @@ def _select_cols(view: str) -> str:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def carregar_view(view: str, lote: int = 1000) -> pd.DataFrame:
+def carregar_view(view: str, lote: int = 1000, desde: str | None = None,
+                  campo_data: str = "creation_date",
+                  status_sempre: tuple | None = None) -> pd.DataFrame:
+    """Leitura paginada (cap de 1000 do PostgREST).
+
+    `desde` liga a JANELA: em vez de varrer a view inteira, traz só o período
+    recente. Sem isso, o boot puxava a vw_tasks_completa toda (dezenas de
+    milhares de linhas) ANTES do login — o app estourava o health check de 60s
+    do Streamlit Cloud e morria sem traceback.
+
+    `status_sempre` resgata as tarefas EM ABERTO antigas (fora da janela). Sem
+    elas as pendências ficariam subcontadas, que é justamente o número que os
+    painéis existem para mostrar.
+    """
     sb = get_supabase()
     sel = _select_cols(view)
-    registros, inicio = [], 0
-    while True:
-        resp = sb.table(view).select(sel).range(inicio, inicio + lote - 1).execute()
-        dados = resp.data or []
-        if not dados:
-            break
-        registros.extend(dados)
-        if len(dados) < lote:
-            break
-        inicio += lote
-    df = pd.DataFrame(registros)
-    return _normalizar(df)
+
+    def _paginar(montar) -> list:
+        out, inicio = [], 0
+        while True:
+            q = montar(sb.table(view).select(sel))
+            dados = q.range(inicio, inicio + lote - 1).execute().data or []
+            out.extend(dados)
+            if len(dados) < lote:
+                break
+            inicio += lote
+            if inicio >= MAX_LINHAS:      # teto: não deixa o boot crescer sem fim
+                break
+        return out
+
+    if desde:
+        registros = _paginar(lambda q: q.gte(campo_data, desde))
+        if status_sempre:
+            vistos = {r.get("id") for r in registros}
+            antigas = _paginar(
+                lambda q: q.in_("status_nome", list(status_sempre))
+                           .lt(campo_data, desde))
+            registros.extend(r for r in antigas if r.get("id") not in vistos)
+    else:
+        registros = _paginar(lambda q: q)
+
+    return _normalizar(pd.DataFrame(registros))
 
 
 def _normalizar(df: pd.DataFrame) -> pd.DataFrame:
@@ -108,7 +150,12 @@ def _normalizar(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(ttl=300, show_spinner="Carregando dados do LegalOne…")
 def carregar_tudo():
-    tasks = carregar_view("vw_tasks_completa")
+    """Só as tarefas usam janela — metas e colaboradores já são agregados
+    pequenos (uma linha por unidade / por pessoa)."""
+    corte = (datetime.now(TZ) - timedelta(days=JANELA_DIAS)).date().isoformat()
+    tasks = carregar_view("vw_tasks_completa", desde=corte,
+                          campo_data="creation_date",
+                          status_sempre=EM_ABERTO)
     metas = carregar_view("vw_v360_metas_vs_meta")
     colabs = carregar_view("vw_v360_colaboradores")
     return tasks, metas, colabs
