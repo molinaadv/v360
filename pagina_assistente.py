@@ -70,6 +70,38 @@ consultar listar_subtipos antes (estes nomes estão certos):
 
 - "pendência": subtipo = ["Pendência na Análise", "Pendência na Análise - ADM",
       "Pendência na Análise- Cível"]
+
+INDICADORES OFICIAIS — para QUALQUER um destes, chame contar_indicador com o
+nome exato. NÃO passe subtipos: a função resolve os subtipos e o critério
+(conclusão ou cadastro) direto do catálogo no banco.
+
+  Colaborador que abriu mais pastas ( destaque da meta )  [Abertura · conclusão]
+  Organização de Pastas  [Abertura · cadastro]
+  Acompanhamento ADM  [Acompanhamento ADM · cadastro]
+  Agendamento Administrativo  [Agendamento · cadastro]
+  Pastas Abertas Cível  [Análise · conclusão]
+  Pastas Abertas Previdenciarias e Meta  [Análise · conclusão]
+  Pastas Abertas Trabalhista  [Análise · conclusão]
+  Pastas a serem analisadas  [Análise · cadastro]
+  Voltaram da Denúncia  [Análise · cadastro]
+  Análise Final Cível  [Análise Final Cível · cadastro]
+  Análise Final Previdenciária  [Análise Final Previdenciária · cadastro]
+  Benefício ADM - Deferido  [Benefício ADM - Deferido · cadastro]
+  Benefício ADM - Indeferido  [Benefício ADM - Indeferido · cadastro]
+  Inicial Revisada para Protocolar  [Confecção · cadastro]
+  Inicial enviada ao protocolo  [Confecção · cadastro]
+  Inicial enviada ao protocolo - Cível  [Confecção · cadastro]
+  Inicial na Confecção  [Confecção · cadastro]
+  Inicial na Revisão  [Confecção · cadastro]
+  Pastas a serem distribuidas  [Confecção · cadastro]
+  Denúncia  [Denúncia · cadastro]
+  Acordo Agendado  [Implantação · cadastro]
+  Pré-Acordo  [Implantação · cadastro]
+  Pendencia de pastas abertas  [Pendencia · cadastro]
+  Pendencia de pastas abertas - Iniciadas  [Pendencia · cadastro]
+
+Se o gestor usar um termo que não está aqui, chame listar_indicadores com um
+trecho do termo antes de responder. Nunca invente indicador.
 - "meta" / "bateu a meta": aí sim meta_vs_realizado.
 
 O campo `subtipo` é sempre uma LISTA, mesmo com um nome só.
