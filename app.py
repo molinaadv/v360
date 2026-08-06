@@ -252,7 +252,10 @@ try:
             else:
                 uni_ass = sorted(str(u) for u in permitidas)
                 rotulo = ", ".join(uni_ass) if len(uni_ass) <= 3 else f"{len(uni_ass)} unidades"
-            pagina_assistente.render(uni_ass, rotulo)
+            # nomes reais das unidades (já recortados por auth) vão para o
+            # prompt — sem eles o assistente não sabe se "compensa" é unidade
+            nomes_uni = sorted(df_tasks["unidade_nome"].dropna().astype(str).unique())
+            pagina_assistente.render(uni_ass, rotulo, nomes_uni)
     elif pagina == "Usuarios":
         pagina_usuarios.render(df_tasks)
 except Exception as e:
