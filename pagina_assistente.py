@@ -20,6 +20,11 @@ import ia_modelo
 
 TZ = ZoneInfo("America/Manaus")
 
+# Detalhe técnico na tela (nome da função consultada, view, modelo, tokens).
+# False = visão do gestor. True = modo depuração — foi assim que se percebeu
+# que o modelo tinha inventado número (cartão dizia 13, texto dizia 23).
+DETALHES = False
+
 VOCABULARIO = """
 VOCABULÁRIO DO ESCRITÓRIO — mapeamentos JÁ CONFIRMADOS. Use direto, sem
 consultar listar_subtipos antes (estes nomes estão certos):
@@ -159,6 +164,12 @@ def _fonte(dado: dict, modelo: str, uso: dict) -> str:
     f = dado.get("fonte")
     if not f:
         return ""
+    hora = datetime.now(TZ).strftime("%d/%m %H:%M")
+    if not DETALHES:
+        # procedência sem jargão: o gestor precisa saber de onde veio e quando
+        return (f'<div class="ia-src">Números apurados na base do Legal One · '
+                f'consultado {hora} (Manaus)</div>')
+
     tags = f'<span class="tag">{f["view"]}</span>'
     if f.get("regra"):
         tags += f'<span class="tag">{f["regra"]}</span>'
@@ -167,7 +178,6 @@ def _fonte(dado: dict, modelo: str, uso: dict) -> str:
     sai = uso.get("output_tokens") or uso.get("completion_tokens")
     if ent and sai:
         tags += f'<span class="tag">{ent}→{sai} tok</span>'
-    hora = datetime.now(TZ).strftime("%d/%m %H:%M")
     return f'<div class="ia-src">Fonte: {tags} · Legal One API · consultado {hora}</div>'
 
 
@@ -183,9 +193,10 @@ def _alerta(suspeitos: list) -> str:
 
 
 def _render(bloco: dict):
-    for t in bloco.get("tracos", []):
-        st.markdown(f'<div class="ia-trace">consultou <b>{t}</b></div>',
-                    unsafe_allow_html=True)
+    if DETALHES:
+        for t in bloco.get("tracos", []):
+            st.markdown(f'<div class="ia-trace">consultou <b>{t}</b></div>',
+                        unsafe_allow_html=True)
     if bloco.get("kpis"):
         st.markdown(bloco["kpis"], unsafe_allow_html=True)
     if bloco.get("alerta"):
