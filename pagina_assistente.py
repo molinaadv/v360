@@ -32,7 +32,14 @@ consultar listar_subtipos antes (estes nomes estão certos):
       previdenciário administrativo (ADM) → ["Enviado p/ Análise ADM"]
       cível → ["Enviado p/ Análise Cível"]
       trabalhista → ["Enviado p/ Análise Trabalhista"]
+  NÃO existe "Enviado p/ Análise 1" — ignore.
   NUNCA responda "pasta" com meta_vs_realizado.
+
+- "agendamento de segurança" é indicador SEPARADO — NÃO entra na conta de pastas:
+      subtipo = ["Enviado p/ Análise - Agendemento de Segurança"]
+  Copie o nome EXATAMENTE assim, inclusive "Agendemento" (a base tem esse erro
+  de digitação; escrever certo devolve zero). É subtipo NOVO, então número
+  baixo é esperado — não trate como erro nem como queda.
 - "pendência": subtipo = ["Pendência na Análise", "Pendência na Análise - ADM",
       "Pendência na Análise- Cível"]
 - "meta" / "bateu a meta": aí sim meta_vs_realizado.

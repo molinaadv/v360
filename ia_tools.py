@@ -46,6 +46,9 @@ ROTULOS = {
     "Enviado p/ Análise ADM": "PREVIDENCIÁRIO ADMINISTRATIVO",
     "Enviado p/ Análise Cível": "CÍVEL",
     "Enviado p/ Análise Trabalhista": "TRABALHISTA",
+    # nome com erro de digitação na origem (LegalOne). Os subtipos batem letra
+    # por letra — NÃO "corrigir" para "Agendamento" aqui, senão nunca casa.
+    "Enviado p/ Análise - Agendemento de Segurança": "AGENDAMENTO DE SEGURANÇA",
 }
 
 MAX_LINHAS = 20_000  # trava de segurança: acima disso a função recusa e sugere filtrar
