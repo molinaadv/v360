@@ -66,7 +66,10 @@ MODELOS = {
     },
 }
 
-PADRAO = "kimi-k2.6""
+# Modelo em uso. O catálogo MODELOS fica completo de propósito: trocar de
+# provedor é mudar esta linha (e, se quiser o seletor de volta, o bloco
+# comentado no pagina_assistente.py).
+PADRAO = "kimi-k2.6"
 
 URL_ANTHROPIC = "https://api.anthropic.com/v1/messages"
 URL_MOONSHOT = "https://api.moonshot.ai/v1/chat/completions"
@@ -301,7 +304,7 @@ def conversar(historico: list, system: str, unidades, segredos,
                          f"ou troque de modelo no seletor.")
             break
 
-        resultados = []
+        resultados, novas = [], 0
         for c in r["chamadas"]:
             assinatura = (c["nome"], json.dumps(c["args"], sort_keys=True))
             if assinatura in feitas:
@@ -312,6 +315,7 @@ def conversar(historico: list, system: str, unidades, segredos,
                                 "argumentos, ou responda com o que já tem."}
             else:
                 feitas.add(assinatura)
+                novas += 1
                 dado = ia_tools.executar(c["nome"], c["args"], unidades)
             if "erro" not in dado:
                 ultimo_dado = dado
@@ -319,6 +323,12 @@ def conversar(historico: list, system: str, unidades, segredos,
             tracos.append(f'{c["nome"]}</b>({args_txt})<b>')
             resultados.append({"id": c["id"], "nome": c["nome"], "dado": dado})
         historico.append({"quem": "tool", "resultados": resultados})
+        if not novas:
+            # rodada inteira repetida: insistir só gasta token e tempo
+            texto = ("Não consegui fechar a resposta — o modelo ficou repetindo "
+                     "a mesma consulta. Tente perguntar de forma mais específica "
+                     "(nome do assunto, unidade ou período).")
+            break
     else:
         texto = texto or "Consultei demais e não fechei a resposta. Refaça a pergunta mais específica."
 

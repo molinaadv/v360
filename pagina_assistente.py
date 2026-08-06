@@ -146,21 +146,19 @@ def render(unidades, rotulo_recorte: str = ""):
     st.markdown(CSS, unsafe_allow_html=True)
 
     esc = "todas as unidades" if unidades == "*" else f"{len(unidades)} unidades"
-    cab, sel = st.columns([3, 1])
-    with cab:
-        st.markdown(
-            f"### Assistente&nbsp;&nbsp;"
-            f"<span style='font-size:11px;color:#93a1bd;background:#141d2e;border:1px solid #26324d;"
-            f"padding:5px 11px;border-radius:999px'>{rotulo_recorte or esc}</span>&nbsp;"
-            f"<span style='font-size:11px;color:#2fce8f'>● ao vivo</span>",
-            unsafe_allow_html=True)
-    with sel:
-        chaves = list(ia_modelo.MODELOS)
-        modelo = st.selectbox(
-            "Modelo", chaves,
-            index=chaves.index(ia_modelo.PADRAO),
-            format_func=lambda k: ia_modelo.MODELOS[k]["rotulo"],
-            label_visibility="collapsed")
+    modelo = ia_modelo.PADRAO      # fixo; trocar em ia_modelo.PADRAO
+    st.markdown(
+        f"### Assistente&nbsp;&nbsp;"
+        f"<span style='font-size:11px;color:#93a1bd;background:#141d2e;border:1px solid #26324d;"
+        f"padding:5px 11px;border-radius:999px'>{rotulo_recorte or esc}</span>&nbsp;"
+        f"<span style='font-size:11px;color:#2fce8f'>● ao vivo</span>",
+        unsafe_allow_html=True)
+
+    # Para voltar a comparar modelos, basta descomentar (MODELOS continua completo):
+    # chaves = list(ia_modelo.MODELOS)
+    # modelo = st.selectbox("Modelo", chaves, index=chaves.index(ia_modelo.PADRAO),
+    #                       format_func=lambda k: ia_modelo.MODELOS[k]["rotulo"],
+    #                       label_visibility="collapsed")
 
     if "ia_hist" not in st.session_state:
         st.session_state.ia_hist = []   # formato neutro (ia_modelo)

@@ -77,10 +77,19 @@ def _contar(view: str, unidades, filtros: dict, in_filtros: dict | None = None) 
     return q.limit(1).execute().count or 0
 
 
-def _puxar(view: str, unidades, cols: list[str], montar) -> pd.DataFrame:
-    """Leitura paginada (cap de 1000 do PostgREST)."""
+def _puxar(view: str, unidades, cols: list[str], montar,
+           teto: int | None = None) -> pd.DataFrame:
+    """Leitura paginada (cap de 1000 do PostgREST).
+
+    Ao bater o teto, TRUNCA e marca `df.attrs["truncado"]` — não levanta erro.
+    Antes levantava ValueError, e o resultado prático era o modelo receber
+    {"erro": ...}, repetir a mesma chamada e queimar as voltas sem responder.
+    Os números principais não dependem daqui (vêm de count exato no Postgres);
+    isto alimenta só quebras e listas.
+    """
     sel = _checar_colunas(cols)
-    linhas, ini = [], 0
+    limite = teto or MAX_LINHAS
+    linhas, ini, truncado = [], 0, False
     while True:
         q = _sb().table(view).select(sel)
         q = _aplicar_recorte(q, unidades)
@@ -90,9 +99,12 @@ def _puxar(view: str, unidades, cols: list[str], montar) -> pd.DataFrame:
         if len(lote) < 1000:
             break
         ini += 1000
-        if ini > MAX_LINHAS:
-            raise ValueError("consulta ampla demais — filtre por subtipo, unidade ou período")
-    return pd.DataFrame(linhas)
+        if ini >= limite:
+            truncado = True
+            break
+    df = pd.DataFrame(linhas)
+    df.attrs["truncado"] = truncado
+    return df
 
 
 def _mes_ref(mes: str | None) -> str:
@@ -250,6 +262,9 @@ def ranking_executor(unidades, subtipo: str | None = None,
         "subtipo": subtipo or "todos os assuntos",
         "ranking": [{"pessoa": p, "concluidas": int(n)} for p, n in r],
         "total": int(len(df)),
+        **({"aviso": "amostra truncada — o ranking pode estar incompleto; "
+                     "filtre por subtipo ou período menor"}
+           if df.attrs.get("truncado") else {}),
         "fonte": {"view": VIEW_TASKS,
                   "regra": "crédito por usuario_executor · data_conclusao em America/Manaus"},
     }
@@ -368,11 +383,17 @@ def serie_mensal(unidades, base: str = "conclusao", subtipo=None,
 def listar_subtipos(unidades, contem: str = "") -> dict:
     """Subtipos batem letra por letra. A IA usa isto antes de contar quando não
     tem certeza do nome exato (evita devolver 0 por causa de um acento)."""
+    # 3.000 linhas bastam: nome de subtipo se repete muito, os distintos
+    # aparecem logo. Varrer a base toda só para listar nomes estourava o teto.
     df = _puxar(VIEW_TASKS, unidades, ["subtipo_nome"],
-                lambda q: q.ilike("subtipo_nome", f"%{contem}%") if contem else q)
+                lambda q: q.ilike("subtipo_nome", f"%{contem}%") if contem else q,
+                teto=3_000)
     nomes = sorted(df["subtipo_nome"].dropna().unique().tolist()) if not df.empty else []
     return {"busca": contem or "(todos)", "encontrados": nomes[:40],
-            "total": len(nomes)}
+            "total": len(nomes),
+            "dica": ("use um destes nomes EXATOS em contar_em_aberto ou serie_mensal"
+                     if nomes else
+                     "nenhum subtipo com esse texto — tente um trecho menor")}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
