@@ -13,6 +13,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import plotly.graph_objects as go
 import requests
 import streamlit as st
 
@@ -181,6 +182,71 @@ def _fonte(dado: dict, modelo: str, uso: dict) -> str:
     return f'<div class="ia-src">Fonte: {tags} · Legal One API · consultado {hora}</div>'
 
 
+CORES = {"aberta": "#2fce8f", "pendente": "#f5a524", "neutro": "#5b8cff",
+         "linha": "#26324d", "ink": "#f2f6ff", "muted": "#93a1bd"}
+
+
+def _layout(fig, altura: int):
+    fig.update_layout(
+        height=altura, margin=dict(l=8, r=8, t=8, b=8),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=CORES["muted"], size=12),
+        legend=dict(orientation="h", y=1.12, x=0, bgcolor="rgba(0,0,0,0)"),
+        xaxis=dict(gridcolor=CORES["linha"], zeroline=False),
+        yaxis=dict(gridcolor=CORES["linha"], zeroline=False),
+    )
+    return fig
+
+
+def _grafico(dado: dict):
+    """Monta o gráfico a partir do RESULTADO DA CONSULTA — nunca do texto do
+    modelo. Se o modelo errar um número na frase, o gráfico continua certo."""
+    if not dado:
+        return None
+
+    # 1) quebra por área (pastas): barras horizontais, aberta x pendente
+    areas = dado.get("por_area")
+    if areas:
+        rot = [a["area"].title() for a in areas][::-1]
+        fig = go.Figure([
+            go.Bar(y=rot, x=[a["cumpridas_no_mes"] for a in areas][::-1],
+                   name="Abertas no mês", orientation="h",
+                   marker_color=CORES["aberta"], text=[a["cumpridas_no_mes"] for a in areas][::-1],
+                   textposition="outside", cliponaxis=False),
+            go.Bar(y=rot, x=[a["em_aberto"] for a in areas][::-1],
+                   name="Pendentes de análise", orientation="h",
+                   marker_color=CORES["pendente"], text=[a["em_aberto"] for a in areas][::-1],
+                   textposition="outside", cliponaxis=False),
+        ])
+        fig.update_layout(barmode="group")
+        return _layout(fig, 90 + 46 * len(areas))
+
+    # 2) série mensal: barras por mês, o corrente (parcial) mais apagado
+    meses = dado.get("meses")
+    if meses:
+        cores = [CORES["neutro"]] * len(meses)
+        if meses[-1].get("parcial"):
+            cores[-1] = "#3a5a99"       # mês incompleto: visualmente atenuado
+        fig = go.Figure([go.Bar(
+            x=[m["mes"] for m in meses], y=[m["qtd"] for m in meses],
+            marker_color=cores, text=[m["qtd"] for m in meses],
+            textposition="outside", cliponaxis=False, showlegend=False)])
+        return _layout(fig, 260)
+
+    # 3) só a comparação: mês atual x mesmo período do anterior
+    comp = dado.get("comparacao") or {}
+    if "mes_anterior_mesmo_periodo" in comp and "cumpridos_no_mes" in dado:
+        fig = go.Figure([go.Bar(
+            x=["Mesmo período<br>do mês anterior", "Este mês"],
+            y=[comp["mes_anterior_mesmo_periodo"], dado["cumpridos_no_mes"]],
+            marker_color=[CORES["neutro"], CORES["aberta"]],
+            text=[comp["mes_anterior_mesmo_periodo"], dado["cumpridos_no_mes"]],
+            textposition="outside", cliponaxis=False, showlegend=False)])
+        return _layout(fig, 240)
+
+    return None
+
+
 def _alerta(suspeitos: list) -> str:
     """Número no texto que não veio do banco. Não some com a resposta: mostra
     e deixa o humano julgar."""
@@ -192,7 +258,7 @@ def _alerta(suspeitos: list) -> str:
             f'fonte abaixo, não na frase.</div>')
 
 
-def _render(bloco: dict):
+def _render(bloco: dict, idx: int = 0):
     if DETALHES:
         for t in bloco.get("tracos", []):
             st.markdown(f'<div class="ia-trace">consultou <b>{t}</b></div>',
@@ -202,6 +268,11 @@ def _render(bloco: dict):
     if bloco.get("alerta"):
         st.markdown(bloco["alerta"], unsafe_allow_html=True)
     st.markdown(bloco["texto"])
+    fig = _grafico(bloco.get("dado") or {})
+    if fig is not None:
+        st.plotly_chart(fig, use_container_width=True,
+                        config={"displayModeBar": False},
+                        key=f"ia_graf_{idx}")
     if bloco.get("fonte"):
         st.markdown(bloco["fonte"], unsafe_allow_html=True)
 
@@ -230,12 +301,12 @@ def render(unidades, rotulo_recorte: str = ""):
     if "ia_tela" not in st.session_state:
         st.session_state.ia_tela = []   # o que desenhamos
 
-    for b in st.session_state.ia_tela:
+    for i, b in enumerate(st.session_state.ia_tela):
         with st.chat_message("user" if b["quem"] == "user" else "assistant"):
             if b["quem"] == "user":
                 st.markdown(b["texto"])
             else:
-                _render(b)
+                _render(b, i)
 
     pergunta = st.chat_input("Pergunte sobre suas unidades…")
     if not pergunta:
@@ -262,7 +333,8 @@ def render(unidades, rotulo_recorte: str = ""):
         bloco = {"quem": "ia", "texto": r["texto"] or "Sem resposta.",
                  "tracos": r["tracos"],
                  "alerta": _alerta(r.get("suspeitos") or []),
+                 "dado": r["ultimo_dado"],
                  "kpis": _kpis(r["ultimo_dado"]),
                  "fonte": _fonte(r["ultimo_dado"], r["modelo"], r["uso"])}
-        _render(bloco)
+        _render(bloco, len(st.session_state.ia_tela))
         st.session_state.ia_tela.append(bloco)
