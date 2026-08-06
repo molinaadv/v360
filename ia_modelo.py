@@ -292,6 +292,15 @@ def _numeros_do_dado(dado) -> set:
     return out
 
 
+# campos que a tela sabe desenhar (cartões ou gráfico)
+CHAVES_VISUAIS = ("criadas_no_mes", "por_area", "coorte_do_mes", "meses",
+                  "ranking", "eventos", "em_aberto", "no_mes", "unidades")
+
+
+def _renderavel(dado) -> bool:
+    return isinstance(dado, dict) and any(k in dado for k in CHAVES_VISUAIS)
+
+
 def conferir_numeros(texto: str, dado: dict) -> list:
     """Devolve os números citados no texto que NÃO vieram do banco.
 
@@ -360,7 +369,12 @@ def conversar(historico: list, system: str, unidades, segredos,
                 novas += 1
                 dado = ia_tools.executar(c["nome"], c["args"], unidades)
             if "erro" not in dado:
-                ultimo_dado = dado
+                # guarda o último resultado RENDERIZÁVEL, não o último qualquer.
+                # Se o modelo chamasse contar_indicador e depois listar_indicadores
+                # (para conferir um nome), o "último" virava a lista — sem número
+                # nenhum — e os cartões/gráficos sumiam apesar do texto certo.
+                if _renderavel(dado) or not _renderavel(ultimo_dado):
+                    ultimo_dado = dado
             args_txt = ", ".join(f'"{v}"' for v in c["args"].values()) or "—"
             tracos.append(f'{c["nome"]}</b>({args_txt})<b>')
             resultados.append({"id": c["id"], "nome": c["nome"], "dado": dado})
