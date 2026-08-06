@@ -24,6 +24,7 @@ FORMATO NEUTRO (lista de turnos):
 from __future__ import annotations
 
 import json
+import re
 
 import requests
 
@@ -273,6 +274,40 @@ _DESPACHO = {"anthropic": _chamar_anthropic, "moonshot": _chamar_moonshot}
 # laço principal — é o que a tela chama
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _numeros_do_dado(dado) -> set:
+    """Todos os inteiros que o banco devolveu (inclusive dentro de listas)."""
+    out = set()
+    if isinstance(dado, dict):
+        for v in dado.values():
+            out |= _numeros_do_dado(v)
+    elif isinstance(dado, (list, tuple)):
+        for v in dado:
+            out |= _numeros_do_dado(v)
+    elif isinstance(dado, bool):
+        pass
+    elif isinstance(dado, int):
+        out.add(abs(dado))
+    elif isinstance(dado, float) and dado == int(dado):
+        out.add(abs(int(dado)))
+    return out
+
+
+def conferir_numeros(texto: str, dado: dict) -> list:
+    """Devolve os números citados no texto que NÃO vieram do banco.
+
+    Existe porque o modelo já entregou resposta com número inventado (disse 23
+    quando o banco devolveu 13) — coerente e convincente, e errado. Aqui não se
+    corrige o texto; sinaliza-se, e quem decide é o humano.
+    """
+    if not dado:
+        return []
+    permitidos = _numeros_do_dado(dado)
+    citados = {int(n) for n in re.findall(r"\d+", texto or "")}
+    # ignora ano/mês do rótulo de período (2026, 08) e ordinais até 12
+    ruido = {2024, 2025, 2026, 2027} | set(range(0, 13))
+    return sorted(n for n in citados - permitidos - ruido)
+
+
 def conversar(historico: list, system: str, unidades, segredos,
               chave_modelo: str = PADRAO, cache: bool = True) -> dict:
     """Roda pergunta → função → resposta até o modelo parar de chamar função.
@@ -334,10 +369,12 @@ def conversar(historico: list, system: str, unidades, segredos,
             # modelo a redigir com o que tem. (Antes isto abortava e jogava fora
             # uma resposta pronta.)
             empurrao = {"quem": "user", "texto": (
-                "As consultas JÁ FORAM FEITAS e os resultados estão acima. "
-                "Responda AGORA a pergunta do usuário usando esses números. "
-                "Comece pelo número. NÃO descreva o que vai fazer, NÃO diga "
-                "'vou consultar' e NÃO peça mais consultas.")}
+                "RESULTADO DA CONSULTA (use SOMENTE estes números, não invente "
+                "nem recalcule nada):\n" + _txt(ultimo_dado) + "\n\n"
+                "Responda AGORA a pergunta do usuário com estes valores. "
+                "Se houver `por_area`, liste uma linha por área (use o rótulo "
+                "do campo `area`) e o total geral no fim. "
+                "NÃO descreva o que vai fazer e NÃO peça mais consultas.")}
             # vai só nesta chamada — não entra no histórico da sessão
             r = chamar(podar(historico) + [empurrao], system, chave,
                        cfg["modelo"], cache, cfg.get("extra"), True)
@@ -351,4 +388,5 @@ def conversar(historico: list, system: str, unidades, segredos,
         texto = texto or "Consultei demais e não fechei a resposta. Refaça a pergunta mais específica."
 
     return {"texto": texto, "tracos": tracos, "ultimo_dado": ultimo_dado,
+            "suspeitos": conferir_numeros(texto, ultimo_dado),
             "uso": uso, "modelo": cfg["rotulo"]}
