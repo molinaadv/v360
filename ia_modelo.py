@@ -302,8 +302,10 @@ def conferir_numeros(texto: str, dado: dict) -> list:
     if not dado:
         return []
     permitidos = _numeros_do_dado(dado)
-    citados = {int(n) for n in re.findall(r"\d+", texto or "")}
-    # ignora ano/mês do rótulo de período (2026, 08) e ordinais até 12
+    # "1.509" é mil e quinhentos e nove, não "1" e "509" — sem tirar o separador
+    # de milhar o verificador acusava número que a consulta tinha devolvido
+    limpo = re.sub(r"(?<=\d)[.\u00a0](?=\d{3}\b)", "", texto or "")
+    citados = {int(n) for n in re.findall(r"\d+", limpo)}
     ruido = {2024, 2025, 2026, 2027} | set(range(0, 13))
     return sorted(n for n in citados - permitidos - ruido)
 
