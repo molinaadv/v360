@@ -24,9 +24,14 @@ VOCABULARIO = """
 VOCABULÁRIO DO ESCRITÓRIO — mapeamentos JÁ CONFIRMADOS. Use direto, sem
 consultar listar_subtipos antes (estes nomes estão certos):
 
-- "pasta" / "pasta aberta" / "abriu pasta" (previdenciário, o caso comum):
-      subtipo = ["Enviado p/ Análise", "Enviado p/ Análise ADM"]
-  Se disserem "cível", use ["Enviado p/ Análise Cível"].
+- "pasta" / "pasta aberta" / "abriu pasta" — SEM área especificada, mande os 4:
+      subtipo = ["Enviado p/ Análise", "Enviado p/ Análise ADM",
+                 "Enviado p/ Análise Cível", "Enviado p/ Análise Trabalhista"]
+  Se citarem uma área, mande só a dela:
+      previdenciário judicial → ["Enviado p/ Análise"]
+      previdenciário administrativo (ADM) → ["Enviado p/ Análise ADM"]
+      cível → ["Enviado p/ Análise Cível"]
+      trabalhista → ["Enviado p/ Análise Trabalhista"]
   NUNCA responda "pasta" com meta_vs_realizado.
 - "pendência": subtipo = ["Pendência na Análise", "Pendência na Análise - ADM",
       "Pendência na Análise- Cível"]
@@ -70,6 +75,7 @@ ESTILO:
 - Comece pelo número que responde a pergunta. Depois, no máximo, o que ele significa.
 - Se aparecer muita tarefa "Iniciado" em aberto, mencione: pode ser status preso (fantasma de sync), vale rodar o Re-sync.
 - Nada de bullet a não ser que a pergunta peça lista.
+- Quando a função devolver `por_area`, SEMPRE detalhe: uma linha por área (use o rótulo que veio em `area`, não o nome técnico do subtipo) e o TOTAL GERAL no fim. Área com zero também aparece. Aqui a lista é obrigatória, não é exceção.
 """
 
 CSS = """

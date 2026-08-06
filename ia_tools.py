@@ -39,6 +39,15 @@ COLUNAS_PERMITIDAS = {
     "cliente_nome", "setor_meta",
 }
 
+# Rótulo de negócio por subtipo. Fica AQUI (e não no prompt) para o número e a
+# etiqueta andarem juntos — assim o modelo não tem como trocar um pelo outro.
+ROTULOS = {
+    "Enviado p/ Análise": "PREVIDENCIÁRIO JUDICIAL",
+    "Enviado p/ Análise ADM": "PREVIDENCIÁRIO ADMINISTRATIVO",
+    "Enviado p/ Análise Cível": "CÍVEL",
+    "Enviado p/ Análise Trabalhista": "TRABALHISTA",
+}
+
 MAX_LINHAS = 20_000  # trava de segurança: acima disso a função recusa e sugere filtrar
 
 
@@ -209,6 +218,21 @@ def contar_em_aberto(unidades, subtipo, unidade: str | None = None) -> dict:
     ant_parcial = _contar_periodo(VIEW_TASKS, esc, "data_conclusao",
                                   ini_ant, corte, subtipo, "Cumprido")
 
+    # quebra por subtipo (com rótulo da área) quando o indicador soma mais de um
+    lista = [subtipo] if isinstance(subtipo, str) else list(subtipo or [])
+    por_subtipo = []
+    if len(lista) > 1:
+        for nome in lista:
+            q1 = _subtipo_filtro(_aplicar_recorte(
+                _sb().table(VIEW_TASKS).select("id", count="exact"), esc), nome)
+            por_subtipo.append({
+                "area": ROTULOS.get(nome, nome),
+                "subtipo": nome,
+                "em_aberto": q1.in_("status_nome", EM_ABERTO).limit(1).execute().count or 0,
+                "cumpridas_no_mes": _contar_periodo(VIEW_TASKS, esc, "data_conclusao",
+                                                    ini_mes, prox_mes, nome, "Cumprido"),
+            })
+
     # quebra por status (revela "Iniciado" fantasma) e por unidade
     df = _puxar(VIEW_TASKS, esc, ["status_nome", "unidade_nome"],
                 lambda q: _subtipo_filtro(q, subtipo).in_("status_nome", EM_ABERTO))
@@ -227,6 +251,7 @@ def contar_em_aberto(unidades, subtipo, unidade: str | None = None) -> dict:
         "pct_concluido": round(100 * cumprido / total) if total else 0,
         "por_status": por_status,
         "por_unidade": por_unidade,
+        **({"por_area": por_subtipo} if por_subtipo else {}),
         "comparacao": {
             "mes_anterior_mesmo_periodo": ant_parcial,
             "mes_anterior_fechado": ant_cheio,
@@ -414,7 +439,9 @@ SCHEMA = [
         "name": "contar_em_aberto",
         "description": ("Conta tarefas EM ABERTO (Pendente/Não cumprido/Iniciado) e "
                         "CUMPRIDAS no mês corrente para um assunto (subtipo). "
-                        "Devolve também a quebra por status e as 5 unidades com mais casos."),
+                        "Devolve também a quebra por status, as 5 unidades com mais casos "
+                        "e, quando vierem vários subtipos, `por_area` com o total de "
+                        "cada área de atuação."),
         "input_schema": {
             "type": "object",
             "properties": {
