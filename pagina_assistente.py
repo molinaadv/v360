@@ -42,10 +42,11 @@ consultar listar_subtipos antes (estes nomes estão certos):
   NUNCA responda "pasta" com meta_vs_realizado.
 
   ⚠ NOMES OFICIAIS destes dois números (use exatamente assim):
-    • `cumpridos_no_mes` → "PASTAS ABERTAS". A tarefa "Enviado p/ Análise" é o
+    • `no_mes` (com base="conclusao") → "PASTAS ABERTAS". A tarefa "Enviado p/ Análise" é o
       pedido de validação; quando o analista a CUMPRE, ele confirmou documento
       e direito — a pasta está aberta de fato. Cumprido = pasta aberta.
       É ESTE o número que responde "quantas pastas abriu / pastas abertas".
+      Chame contar_em_aberto SEM base (o padrão já é conclusao).
     • `em_aberto` → "PASTAS PENDENTES DE ANÁLISE". Pedido de validação que
       ninguém conferiu ainda. Não é pasta aberta — é candidata, pode ser
       reprovada.
@@ -61,6 +62,12 @@ consultar listar_subtipos antes (estes nomes estão certos):
   Copie o nome EXATAMENTE assim, inclusive "Agendemento" (a base tem esse erro
   de digitação; escrever certo devolve zero). É subtipo NOVO, então número
   baixo é esperado — não trate como erro nem como queda.
+- "enviada p/ confecção" / "enviadas para confecção":
+      subtipo = ["Enviada p/ Confecção"]  E  base = "criacao"
+  Aqui conta por CADASTRO da tarefa (creation_date), não por conclusão — é
+  regra do escritório, diferente das pastas. O campo `no_mes` vem rotulado
+  "cadastradas no mês"; ao responder, chame de "enviadas para confecção no mês".
+
 - "pendência": subtipo = ["Pendência na Análise", "Pendência na Análise - ADM",
       "Pendência na Análise- Cível"]
 - "meta" / "bateu a meta": aí sim meta_vs_realizado.
@@ -78,7 +85,7 @@ SYSTEM = """Você é o assistente do V360, painel interno da Molina Advogados (d
 Você responde a advogados e gestores do escritório sobre os dados operacionais.
 
 REGRAS:
-- Todo número vem das funções. Você NUNCA estima, arredonda de cabeça ou inventa um valor. Copie os valores EXATOS do resultado — se a função devolveu 13, escreva 13, nunca outro número. Percentual só se vier pronto no campo `variacao_pct`; não calcule de cabeça. Se não tem função pra pergunta, diga o que não consegue responder e sugira o painel certo.
+- Todo número vem das funções. Você NUNCA estima, arredonda de cabeça ou inventa um valor. Copie os valores EXATOS do resultado — se a função devolveu 13, escreva 13, nunca outro número. Use o `rotulo_no_mes` que vier no resultado para nomear o número do mês. Percentual só se vier pronto no campo `variacao_pct`; não calcule de cabeça. Se não tem função pra pergunta, diga o que não consegue responder e sugira o painel certo.
 - Os nomes de subtipo batem letra por letra. Se não tiver certeza do nome exato, chame listar_subtipos ANTES de contar. Nunca chute o nome.
 - "Em aberto" = Pendente, Não cumprido ou Iniciado. "Cumprido no mês" usa mes_conclusao.
 - Crédito de produtividade é de quem CONCLUIU (usuario_executor), nunca do responsável.
@@ -143,9 +150,9 @@ def _system() -> str:
 def _kpis(dado: dict) -> str:
     """Cartões grandes quando a função devolve contagem. Cor semântica do projeto."""
     cards = []
-    if "em_aberto" in dado:
-        cards = [("#f5a524", dado["em_aberto"], "em aberto"),
-                 ("#2fce8f", dado["cumpridos_no_mes"], "cumpridos no mês"),
+    if "em_aberto" in dado and "no_mes" in dado:
+        cards = [("#2fce8f", dado["no_mes"], dado.get("rotulo_no_mes", "no mês")),
+                 ("#f5a524", dado["em_aberto"], "em aberto"),
                  ("#8b7bff", dado["total"], "total")]
     elif dado.get("ranking"):
         cores = ["#2fce8f", "#f2f6ff", "#f2f6ff"]
@@ -218,9 +225,10 @@ def _graficos(dado: dict) -> list:
     if areas:
         rot = [CURTO.get(a["area"], a["area"].title()) for a in areas][::-1]
         fig = go.Figure([
-            go.Bar(y=rot, x=[a["cumpridas_no_mes"] for a in areas][::-1],
-                   name="Abertas no mês", orientation="h",
-                   marker_color=CORES["aberta"], text=[a["cumpridas_no_mes"] for a in areas][::-1],
+            go.Bar(y=rot, x=[a["no_mes"] for a in areas][::-1],
+                   name=dado.get("rotulo_no_mes", "no mês").capitalize(),
+                   orientation="h", marker_color=CORES["aberta"],
+                   text=[a["no_mes"] for a in areas][::-1],
                    textposition="outside", cliponaxis=False),
             go.Bar(y=rot, x=[a["em_aberto"] for a in areas][::-1],
                    name="Pendentes de análise", orientation="h",
@@ -245,8 +253,8 @@ def _graficos(dado: dict) -> list:
     # 3) comparativo: este mês x MESMO PERÍODO do mês anterior (o mês corrente
     #    não fechou; comparar com o mês cheio inventaria uma queda)
     comp = dado.get("comparacao") or {}
-    if "mes_anterior_mesmo_periodo" in comp and "cumpridos_no_mes" in dado:
-        ant, atual = comp["mes_anterior_mesmo_periodo"], dado["cumpridos_no_mes"]
+    if "mes_anterior_mesmo_periodo" in comp and "no_mes" in dado:
+        ant, atual = comp["mes_anterior_mesmo_periodo"], dado["no_mes"]
         fig = go.Figure([go.Bar(
             x=["Mês anterior<br>(mesmo período)", "Este mês"], y=[ant, atual],
             marker_color=[CORES["neutro"], CORES["aberta"]], text=[ant, atual],
