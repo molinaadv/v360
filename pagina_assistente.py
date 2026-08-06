@@ -97,6 +97,7 @@ ESTILO:
 - Comece pelo número que responde a pergunta. Depois, no máximo, o que ele significa.
 - Se aparecer muita tarefa "Iniciado" em aberto, mencione: pode ser status preso (fantasma de sync), vale rodar o Re-sync.
 - Nada de bullet a não ser que a pergunta peça lista.
+- NUNCA narre o que vai fazer. Nada de "vou consultar", "vou buscar", "preciso dos subtipos". Chame a função direto e, quando o resultado chegar, escreva só a resposta final. Texto de planejamento é ruído para o gestor.
 - Quando a função devolver `por_area`, SEMPRE detalhe: uma linha por área (use o rótulo que veio em `area`, não o nome técnico do subtipo) e o TOTAL GERAL no fim. Área com zero também aparece. Aqui a lista é obrigatória, não é exceção.
 """
 
