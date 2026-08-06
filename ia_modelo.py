@@ -51,12 +51,18 @@ MODELOS = {
         "provedor": "moonshot",
         "modelo": "kimi-k2.6",
         "chave": "MOONSHOT_API_KEY",
+        # escolher entre 6 funções não precisa de raciocínio longo, e com
+        # thinking ligado os tokens de pensamento comem o orçamento de saída
+        # (resposta voltava vazia). Desligado também sai mais barato.
+        "extra": {"thinking": {"type": "disabled"}, "temperature": 0.6},
     },
     "kimi-k3": {
         "rotulo": "Kimi K3",
         "provedor": "moonshot",
         "modelo": "kimi-k3",
         "chave": "MOONSHOT_API_KEY",
+        # K3 não aceita desligar o raciocínio — só dar teto de saída folgado
+        "extra": {},
     },
 }
 
@@ -65,6 +71,9 @@ PADRAO = "claude-sonnet-5"
 URL_ANTHROPIC = "https://api.anthropic.com/v1/messages"
 URL_MOONSHOT = "https://api.moonshot.ai/v1/chat/completions"
 
+MAX_SAIDA = 3000        # teto de tokens de saída. Em modelo com raciocínio o
+                        # pensamento consome deste orçamento — 1024 era pouco e
+                        # a resposta voltava vazia.
 MAX_VOLTAS = 5          # teto de chamadas de função por pergunta
 TURNOS_COM_DADO = 2     # quantas rodadas de função mantêm o JSON inteiro
 MAX_TURNOS = 12         # janela de histórico enviada ao modelo
@@ -207,13 +216,13 @@ def _post(url: str, headers: dict, corpo: dict) -> dict:
     return r.json()
 
 
-def _chamar_anthropic(historico, system, chave, modelo, cache) -> dict:
+def _chamar_anthropic(historico, system, chave, modelo, cache, extra=None) -> dict:
     sistema = ([{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
                if cache else system)
     resp = _post(URL_ANTHROPIC,
                  {"x-api-key": chave, "anthropic-version": "2023-06-01",
                   "content-type": "application/json"},
-                 {"model": modelo, "max_tokens": 1024, "system": sistema,
+                 {"model": modelo, "max_tokens": MAX_SAIDA, "system": sistema,
                   "tools": _tools_anthropic(cache),
                   "messages": _neutro_para_anthropic(historico)})
 
@@ -221,18 +230,20 @@ def _chamar_anthropic(historico, system, chave, modelo, cache) -> dict:
     chamadas = [{"id": b["id"], "nome": b["name"], "args": b["input"]}
                 for b in resp["content"] if b["type"] == "tool_use"]
     return {"texto": texto, "chamadas": chamadas, "raciocinio": "",
-            "uso": resp.get("usage", {})}
+            "motivo": resp.get("stop_reason"), "uso": resp.get("usage", {})}
 
 
-def _chamar_moonshot(historico, system, chave, modelo, _cache) -> dict:
+def _chamar_moonshot(historico, system, chave, modelo, _cache, extra=None) -> dict:
+    corpo = {"model": modelo, "max_tokens": MAX_SAIDA,
+             "tools": _tools_openai(),
+             "messages": _neutro_para_openai(historico, system)}
+    corpo.update(extra or {})
     resp = _post(URL_MOONSHOT,
                  {"Authorization": f"Bearer {chave}",
-                  "Content-Type": "application/json"},
-                 {"model": modelo, "max_tokens": 1024,
-                  "tools": _tools_openai(),
-                  "messages": _neutro_para_openai(historico, system)})
+                  "Content-Type": "application/json"}, corpo)
 
-    msg = resp["choices"][0]["message"]
+    escolha = resp["choices"][0]
+    msg = escolha["message"]
     chamadas = []
     for c in (msg.get("tool_calls") or []):
         try:
@@ -243,6 +254,7 @@ def _chamar_moonshot(historico, system, chave, modelo, _cache) -> dict:
     # guardado para ser devolvido na próxima rodada (exigência da Moonshot)
     return {"texto": msg.get("content") or "", "chamadas": chamadas,
             "raciocinio": msg.get("reasoning_content") or "",
+            "motivo": escolha.get("finish_reason"),
             "uso": resp.get("usage", {})}
 
 
@@ -272,7 +284,8 @@ def conversar(historico: list, system: str, unidades, segredos,
     texto = ""
 
     for _ in range(MAX_VOLTAS):
-        r = chamar(podar(historico), system, chave, cfg["modelo"], cache)
+        r = chamar(podar(historico), system, chave, cfg["modelo"], cache,
+                   cfg.get("extra"))
         uso = r["uso"]
         historico.append({"quem": "ia", "texto": r["texto"],
                           "chamadas": r["chamadas"],
@@ -280,6 +293,11 @@ def conversar(historico: list, system: str, unidades, segredos,
 
         if not r["chamadas"]:
             texto = r["texto"]
+            if not texto:
+                # sem texto e sem função: quase sempre teto de saída estourado
+                texto = (f"O modelo devolveu resposta vazia (motivo: "
+                         f"{r.get('motivo') or 'desconhecido'}). Tente de novo "
+                         f"ou troque de modelo no seletor.")
             break
 
         resultados = []
