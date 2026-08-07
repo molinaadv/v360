@@ -20,8 +20,8 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-
-from nucleo import cache_ttl, supabase
+import streamlit as st
+from supabase import create_client
 
 TZ = ZoneInfo("America/Manaus")
 
@@ -59,8 +59,9 @@ MAX_LINHAS = 20_000  # trava de segurança: acima disso a função recusa e suge
 # infra
 # ─────────────────────────────────────────────────────────────────────────────
 
+@st.cache_resource
 def _sb():
-    return supabase()
+    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 
 def _checar_colunas(cols: list[str]) -> str:
@@ -435,7 +436,7 @@ def serie_mensal(unidades, base: str = "conclusao", subtipo=None,
 VIEW_INDICADORES = "v360_indicadores"
 
 
-@cache_ttl(600)
+@st.cache_data(ttl=600, show_spinner=False)
 def _catalogo() -> dict:
     """Catálogo de indicadores do Supabase (24 indicadores / 176 subtipos).
 
