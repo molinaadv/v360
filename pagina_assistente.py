@@ -17,6 +17,8 @@ import plotly.graph_objects as go
 import requests
 import streamlit as st
 
+import re
+
 import ia_modelo
 
 TZ = ZoneInfo("America/Manaus")
@@ -381,6 +383,35 @@ def _render(bloco: dict, idx: int = 0):
         st.markdown(bloco["fonte"], unsafe_allow_html=True)
 
 
+def _dado_para_desenhar(dado: dict, texto: str) -> dict:
+    """Escolhe o resultado que alimenta cartões e gráficos.
+
+    O modelo frequentemente responde SEM chamar função — reaproveita o número
+    que já está no histórico (o próprio prompt manda não repetir chamada
+    idêntica). Nesse caso `ultimo_dado` vem vazio e a resposta saía sem cartão
+    nem gráfico, apesar de o número estar certo. Era o caso de toda pergunta de
+    acompanhamento ("e no ATRIUM?", "qual subtipo?").
+
+    Aqui o último resultado da SESSÃO é reaproveitado — mas só quando ele
+    combina com o texto. A checagem é o `conferir_numeros`: se algum número da
+    frase não existe no resultado guardado, o modelo está falando de outra
+    coisa e desenhar o cartão antigo seria mentir. Nesse caso, sem cartão.
+    """
+    if dado:
+        st.session_state.ia_dado = dado
+        return dado
+
+    guardado = st.session_state.get("ia_dado") or {}
+    if not guardado:
+        return {}
+    # texto sem número nenhum (ex.: "qual dos dois você quer?") não merece cartão
+    if not re.search(r"\d", texto or ""):
+        return {}
+    if ia_modelo.conferir_numeros(texto, guardado):
+        return {}          # cita número que não veio dali
+    return guardado
+
+
 def render(unidades, rotulo_recorte: str = "", nomes_unidades: list | None = None):
     """Chamada pelo app.py. `unidades` = '*' ou lista (vem do auth.aplicar_recorte)."""
     st.markdown(CSS, unsafe_allow_html=True)
@@ -404,6 +435,8 @@ def render(unidades, rotulo_recorte: str = "", nomes_unidades: list | None = Non
         st.session_state.ia_hist = []   # formato neutro (ia_modelo)
     if "ia_tela" not in st.session_state:
         st.session_state.ia_tela = []   # o que desenhamos
+    if "ia_dado" not in st.session_state:
+        st.session_state.ia_dado = {}   # último resultado renderizável da sessão
 
     for i, b in enumerate(st.session_state.ia_tela):
         with st.chat_message("user" if b["quem"] == "user" else "assistant"):
@@ -435,11 +468,13 @@ def render(unidades, rotulo_recorte: str = "", nomes_unidades: list | None = Non
             r = {"texto": f"Não consegui consultar agora: {e}",
                  "tracos": [], "ultimo_dado": {}, "uso": {}, "modelo": modelo}
 
+        dado = _dado_para_desenhar(r["ultimo_dado"], r["texto"])
+
         bloco = {"quem": "ia", "texto": r["texto"] or "Sem resposta.",
                  "tracos": r["tracos"],
                  "alerta": _alerta(r.get("suspeitos") or []),
-                 "dado": r["ultimo_dado"],
-                 "kpis": _kpis(r["ultimo_dado"]),
-                 "fonte": _fonte(r["ultimo_dado"], r["modelo"], r["uso"])}
+                 "dado": dado,
+                 "kpis": _kpis(dado),
+                 "fonte": _fonte(dado, r["modelo"], r["uso"])}
         _render(bloco, len(st.session_state.ia_tela))
         st.session_state.ia_tela.append(bloco)
